@@ -59,7 +59,7 @@
                     </ul>
                 </li>
 
-                <li class="nav-item"><a class="nav-link" onclick="showSection('signup')">Sign Up</a></li>
+                <li class="nav-item"><a href="signup.html">Sign Up</a></li>
                 <li class="nav-item my-1 my-md-0">
                     <button class="btn border-white text-white btn-sm px-3 py-1 fw-bold w-100 w-md-auto" style="font-size: 0.8rem;" onclick="showSection('login-teacher')">Login</button>
                 </li>
@@ -308,21 +308,7 @@
 
     </section>
 
-    <!-- Sign Up Screen Section -->
-    <section id="signup" class="view-section d-none">
-        <div class="auth-card mx-auto my-4" style="max-width: 500px;">
-            <h3 class="text-center fw-bold mb-4">Create Account</h3>
-            <div class="row g-2 mb-3">
-                <div class="col-6"><input type="text" id="s-fname" class="form-control" placeholder="First Name"></div>
-                <div class="col-6"><input type="text" id="s-sname" class="form-control" placeholder="Surname"></div>
-            </div>
-            <input type="email" id="s-email" class="form-control mb-3" placeholder="Email Address">
-            <div class="pass-group mb-3"><input type="password" id="s-pass" class="form-control" placeholder="Password"><i class="bi bi-eye-slash toggle-password" onclick="togglePass('s-pass', this)"></i></div>
-            <div class="pass-group mb-3"><input type="password" id="s-repass" class="form-control" placeholder="Re-password"><i class="bi bi-eye-slash toggle-password" onclick="togglePass('s-repass', this)"></i></div>
-            <button class="btn btn-primary w-100 fw-bold py-2" onclick="handleSignup()">Sign Up</button>
-            <p class="text-center mt-3 small">May account na? <a href="#" onclick="showSection('login-teacher')">Login dito</a></p>
-        </div>
-    </section>
+    
 
     <!-- Teacher Auth Screen Section -->
     <section id="login-teacher" class="view-section d-none">

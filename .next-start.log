@@ -1,0 +1,12 @@
+npm notice run fquizmobase@0.1.0 start
+npm notice run next start
+▲ Next.js 16.4.3
+- Local:         http://localhost:3000
+- Network:       http://10.148.199.225:3000
+✓ Ready in 5.3s
+⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: \\?\C:\Users\laptop\Documents\Fili-QuizMo\Fili-QuizMo\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node is not a valid Win32 application.
+\\?\C:\Users\laptop\Documents\Fili-QuizMo\Fili-QuizMo\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
+⚠ Warning: Next.js ignored package-lock.json in C:\Users\laptop because it is outside the current Git repository (C:\Users\laptop\Documents\Fili-QuizMo\Fili-QuizMo).
+ To use this directory, set `outputFileTracingRoot` in your Next.js config.
+
+✓ Running next.config.ts took 4.3s
