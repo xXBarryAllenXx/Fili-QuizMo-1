@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AdminLoginForm } from "@/components/auth/admin-login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
-
 export default function AdminLoginPage() {
   return (
     <AuthShell

@@ -18,15 +18,17 @@ export function Carousel({ items }: CarouselProps) {
 
   const goTo = useCallback(
     (nextIndex: number) => {
-      setIndex((prevIndex) =>
-        (prevIndex + nextIndex + items.length) % items.length
-      );
+      setIndex(((nextIndex % items.length) + items.length) % items.length);
     },
     [items.length]
   );
 
-  const next = useCallback(() => goTo(index + 1), [goTo, index]);
-  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
+  const next = useCallback(() => {
+    setIndex((prevIndex) => (prevIndex + 1) % items.length);
+  }, [items.length]);
+  const prev = useCallback(() => {
+    setIndex((prevIndex) => (prevIndex - 1 + items.length) % items.length);
+  }, [items.length]);
 
   useEffect(() => {
     if (paused) return;
@@ -121,7 +123,7 @@ export function Carousel({ items }: CarouselProps) {
           <button
             key={slide.src}
             type="button"
-            onClick={() => goTo(slideIndex - index)}
+            onClick={() => goTo(slideIndex)}
             aria-label={`Go to slide ${slideIndex + 1}`}
             className={`h-2.5 w-2.5 rounded-full transition-colors ${
               slideIndex === index ? "bg-white" : "bg-white/50"

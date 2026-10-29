@@ -7,22 +7,22 @@ const carouselItems = [
   {
     src: "/assets/home_screen.jpg",
     alt: "Fili-QuizMo home screen",
-    caption: "Pick a quiz and start learning",
+    caption: "Create or join quizzes with generated code",
   },
   {
     src: "/assets/fill_in_the_blanks.jpg",
     alt: "Fili-QuizMo fill in the blanks quiz",
-    caption: "Challenge your knowledge",
+    caption: "Fill in the blanks with your filipino knowledge",
   },
   {
     src: "/assets/true_false_quiz.jpg",
     alt: "Fili-QuizMo true or false quiz",
-    caption: "Test your instincts",
+    caption: "Test your knowledge with true or false questions",
   },
   {
     src: "/assets/role_select.jpg",
     alt: "Fili-QuizMo role selection",
-    caption: "Choose your learning path",
+    caption: "Students can join quizzes while teachers can create and join quizzes",
   },
 ];
 
@@ -63,13 +63,13 @@ export default function Home() {
               </h1>
               <p className="mt-6 text-lg text-white/80">
                 Fili-QuizMo turns learning into an interactive quiz experience.
-                Built for students who want to make
-                studying fun, measurable, and engaging.
+                Built for students who want a fun and engaging way to answer quizzes.
               </p>
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                 <ButtonLink
                   href="/signup"
-                  className="bg-white text-primary hover:bg-white/90"
+                  variant="outline"
+                  className="border-white text-white hover:bg-white/10"
                 >
                   Get Started
                 </ButtonLink>

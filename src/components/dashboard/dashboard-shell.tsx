@@ -15,6 +15,7 @@ type DashboardShellProps = {
   navItems: DashboardNavItem[];
   activeKey: string;
   onNavigate: (key: string) => void;
+  onLogout?: () => void;
   children: ReactNode;
 };
 
@@ -23,6 +24,7 @@ export function DashboardShell({
   navItems,
   activeKey,
   onNavigate,
+  onLogout,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -39,7 +41,11 @@ export function DashboardShell({
 
   function handleLogout() {
     setProfileOpen(false);
-    router.push(loginRoute);
+    if (onLogout) {
+      onLogout();
+    } else {
+      router.push(loginRoute);
+    }
   }
 
   return (

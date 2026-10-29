@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validate admin MFA changes",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"npm run lint && npm run build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build admin MFA changes",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"npx eslint src/lib/supabase src/proxy.ts src/components/auth/admin-login-form.tsx src/app/admin-dashboard/page.tsx src/components/dashboard/admin-dashboard-content.tsx src/components/dashboard/dashboard-shell.tsx && npm run build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}
