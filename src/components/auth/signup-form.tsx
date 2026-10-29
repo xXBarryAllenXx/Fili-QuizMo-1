@@ -24,6 +24,21 @@ export function SignupForm() {
         autoComplete="name"
         required
       />
+      <div>
+        <FormField
+          label="School ID"
+          id="signup-school-id"
+          name="schoolId"
+          type="text"
+          placeholder="Enter your school ID"
+          autoComplete="off"
+          spellCheck={false}
+          required
+        />
+        <p className="mt-1.5 text-xs text-neutral-500">
+          Use the ID issued by your school.
+        </p>
+      </div>
       <FormField
         label="Email address"
         id="signup-email"

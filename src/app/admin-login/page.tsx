@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
             href="/teacher-login"
             className="font-semibold text-primary hover:underline"
           >
-            Teacher Login
+            Login
           </Link>
         </>
       }

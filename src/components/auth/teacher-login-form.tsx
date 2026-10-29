@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
 
 export function TeacherLoginForm() {
@@ -30,19 +31,25 @@ export function TeacherLoginForm() {
         return;
       }
 
-      const { data, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
 
-      if (userError) {
-        setErrorMessage(userError.message);
+      if (userError || !userData.user) {
+        setErrorMessage(userError?.message ?? "Unable to fetch teacher account.");
         return;
       }
 
-      if (data.user?.app_metadata.role !== "teacher") {
+      const { data: teacher_accountsRow, error: teacher_accountsError } = await supabase
+        .from("teacher_accounts")
+        .select("school_id")
+        .eq("school_id", userData.user.id)
+        .maybeSingle();
+
+      if (teacher_accountsError || !teacher_accountsRow) {
         const { error: signOutError } = await supabase.auth.signOut();
         setErrorMessage(
           signOutError
             ? `This account is not authorized for teacher access. ${signOutError.message}`
-            : "This account is not authorized for teacher access.",
+            : "This account is not authorized for teacher access."
         );
         return;
       }
@@ -84,7 +91,14 @@ export function TeacherLoginForm() {
         </p>
       ) : null}
       <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? "Please wait..." : "Sign In as Teacher"}
+        {isLoading ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner className="h-4 w-4" />
+            Signing in...
+          </span>
+        ) : (
+          "Sign In as Teacher"
+        )}
       </Button>
     </form>
   );

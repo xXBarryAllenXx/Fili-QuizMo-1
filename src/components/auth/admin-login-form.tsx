@@ -5,8 +5,8 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
-import { data } from "react-router-dom";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -42,17 +42,17 @@ export function AdminLoginForm() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData.user) {
-        setErrorMessage(userError?.message ?? "Unable to fetch user.");
+        setErrorMessage(userError?.message ?? "Unable to fetch admin account.");
         return;
       }
 
-      const { data: adminRow, error: adminError } = await supabase
-        .from("admin")
+      const { data: admin_accountsRow, error: admin_accountsError } = await supabase
+        .from("admin_accounts")
         .select("user_id")
         .eq("user_id", userData.user.id)
         .maybeSingle();
 
-      if (adminError || !adminRow) {
+      if (admin_accountsError || !admin_accountsRow) {
         const { error: signOutError } = await supabase.auth.signOut();
         setErrorMessage(
           signOutError
@@ -243,13 +243,22 @@ export function AdminLoginForm() {
       ) : null}
 
       <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading
-          ? "Please wait..."
-          : step === "credentials"
-            ? "Sign In as Admin"
-            : step === "enroll"
-              ? "Enable MFA and Sign In"
-              : "Verify and Sign In"}
+        {isLoading ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner className="h-4 w-4" />
+            {step === "credentials"
+              ? "Signing in..."
+              : step === "enroll"
+                ? "Setting up MFA..."
+                : "Verifying..."}
+          </span>
+        ) : step === "credentials" ? (
+          "Sign In as Admin"
+        ) : step === "enroll" ? (
+          "Enable MFA and Sign In"
+        ) : (
+          "Verify and Sign In"
+        )}
       </Button>
     </form>
   );

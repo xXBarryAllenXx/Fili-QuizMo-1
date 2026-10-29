@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/ui/spinner";
 
 export type DashboardNavItem = {
   key: string;
@@ -15,7 +16,7 @@ type DashboardShellProps = {
   navItems: DashboardNavItem[];
   activeKey: string;
   onNavigate: (key: string) => void;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
   children: ReactNode;
 };
 
@@ -29,6 +30,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 
   const loginRoute = role === "Teacher" ? "/teacher-login" : "/admin-login";
@@ -39,12 +41,18 @@ export function DashboardShell({
     setProfileOpen(false);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     setProfileOpen(false);
-    if (onLogout) {
-      onLogout();
-    } else {
-      router.push(loginRoute);
+    setIsLoggingOut(true);
+
+    try {
+      if (onLogout) {
+        await onLogout();
+      } else {
+        router.push(loginRoute);
+      }
+    } finally {
+      setIsLoggingOut(false);
     }
   }
 
@@ -65,7 +73,16 @@ export function DashboardShell({
         }`}
       >
         <div className="flex h-16 items-center border-b border-white/10 px-6">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 text-lg font-bold tracking-tight"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/Fili-QuizMo Logo.png"
+              alt=""
+              className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20"
+            />
             Fili-QuizMo
           </Link>
         </div>
@@ -165,6 +182,21 @@ export function DashboardShell({
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      {isLoggingOut ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-primary/30 px-4 backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 shadow-2xl">
+            <Spinner className="h-5 w-5 text-primary" />
+            <p className="text-sm font-semibold text-foreground">
+              Logging out...
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

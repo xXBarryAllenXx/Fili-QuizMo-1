@@ -1,20 +1,9 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import AdminDashboardContent from "@/components/dashboard/admin-dashboard-content";
 import { createClient } from "@/lib/supabase/server";
 
 export default function AdminDashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <p className="p-8 text-sm text-neutral-600">
-          Verifying admin session...
-        </p>
-      }
-    >
-      <ProtectedAdminDashboard />
-    </Suspense>
-  );
+  return <ProtectedAdminDashboard />;
 }
 
 async function ProtectedAdminDashboard() {
@@ -32,13 +21,13 @@ async function ProtectedAdminDashboard() {
     redirect("/admin-login");
   }
 
-  const { data: adminRow, error: adminError } = await supabase
-          .from("admin")
+  const { data: admin_accountsRow, error: admin_accountsError } = await supabase
+          .from("admin_accounts")
           .select("user_id")
           .eq("user_id", user.id)
           .maybeSingle();
 
-  if (adminError || !adminRow) {
+  if (admin_accountsError || !admin_accountsRow) {
     redirect("/admin-login?error=unauthorized");
   }
 

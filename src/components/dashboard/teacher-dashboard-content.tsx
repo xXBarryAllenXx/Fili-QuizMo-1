@@ -1,7 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   DashboardShell,
@@ -9,28 +13,17 @@ import {
 } from "@/components/dashboard/dashboard-shell";
 import { PieChart } from "@/components/dashboard/pie-chart";
 import { Button } from "@/components/ui/button";
+import { SearchFilter } from "@/components/dashboard/search-filter";
 import { FormField } from "@/components/ui/form-field";
+import { defaultSearchQuery } from "@/lib/search/url-state";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems: DashboardNavItem[] = [
   { key: "quizzes", label: "View Quizzes" },
   { key: "students", label: "Manage Student Info" },
+  { key: "participants", label: "Manage Participants" },
   { key: "scores", label: "View Scores" },
   { key: "settings", label: "Settings" },
-];
-
-const quizzes = [
-  { title: "General Knowledge Quiz", questions: 20, status: "Published" },
-  { title: "Science Fundamentals", questions: 15, status: "Published" },
-  { title: "Math Essentials", questions: 25, status: "Draft" },
-  { title: "English Vocabulary", questions: 10, status: "Published" },
-];
-
-const students = [
-  { name: "Maria Santos", email: "maria@example.com", status: "Active" },
-  { name: "Juan Dela Cruz", email: "juan@example.com", status: "Active" },
-  { name: "Ana Reyes", email: "ana@example.com", status: "Inactive" },
-  { name: "Carlo Mendoza", email: "carlo@example.com", status: "Active" },
 ];
 
 const scores = [
@@ -61,9 +54,50 @@ const scores = [
 ];
 
 export default function TeacherDashboardContent() {
-  const [activeKey, setActiveKey] = useState("quizzes");
+  const searchParams = useSearchParams();
+  const entity = searchParams.get("entity");
+  const searchActiveKey =
+    entity === "students"
+      ? "students"
+      : entity === "participants"
+        ? "participants"
+        : "quizzes";
+  const [manualActiveKey, setManualActiveKey] = useState<string | null>(null);
+  const activeKey = manualActiveKey ?? searchActiveKey;
   const [logoutError, setLogoutError] = useState("");
   const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    function clearManualSection() {
+      setManualActiveKey(null);
+    }
+
+    window.addEventListener("popstate", clearManualSection);
+    return () => window.removeEventListener("popstate", clearManualSection);
+  }, []);
+
+  function navigateToSection(key: string) {
+    setManualActiveKey(
+      key === "students" || key === "participants" || key === "quizzes"
+        ? null
+        : key,
+    );
+    if (key !== "students" && key !== "participants" && key !== "quizzes") {
+      return;
+    }
+
+    const entity =
+      key === "students"
+        ? "students"
+        : key === "participants"
+          ? "participants"
+          : "quizzes";
+    const params = new URLSearchParams();
+    const query = defaultSearchQuery("teacher", entity);
+    params.set("entity", query.entity);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   async function handleLogout() {
     setLogoutError("");
@@ -89,7 +123,7 @@ export default function TeacherDashboardContent() {
       role="Teacher"
       navItems={navItems}
       activeKey={activeKey}
-      onNavigate={setActiveKey}
+      onNavigate={navigateToSection}
       onLogout={handleLogout}
     >
       {logoutError ? (
@@ -99,6 +133,7 @@ export default function TeacherDashboardContent() {
       ) : null}
       {activeKey === "quizzes" && <QuizzesSection />}
       {activeKey === "students" && <StudentsSection />}
+      {activeKey === "participants" && <ParticipantsSection />}
       {activeKey === "scores" && <ScoresSection />}
       {activeKey === "settings" && <SettingsSection />}
     </DashboardShell>
@@ -143,45 +178,17 @@ function QuizzesSection() {
         <StatCard label="Average Score" value="82%" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-foreground">Your Quizzes</h3>
-          <div className="mt-4 space-y-3">
-            {quizzes.map((quiz) => (
-              <div
-                key={quiz.title}
-                className="flex items-center justify-between rounded-lg border border-neutral-100 p-4"
-              >
-                <div>
-                  <p className="font-medium text-foreground">{quiz.title}</p>
-                  <p className="text-sm text-neutral-500">
-                    {quiz.questions} questions
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    quiz.status === "Published"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {quiz.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <SearchFilter role="teacher" entity="quizzes" />
 
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-foreground">
-            Student Score Distribution
-          </h3>
-          <p className="mt-1 text-sm text-neutral-500">
-            Latest quiz performance across score bands.
-          </p>
-          <div className="mt-6">
-            <PieChart />
-          </div>
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-foreground">
+          Student Score Distribution
+        </h3>
+        <p className="mt-1 text-sm text-neutral-500">
+          Latest quiz performance across score bands.
+        </p>
+        <div className="mt-6">
+          <PieChart />
         </div>
       </div>
     </div>
@@ -193,51 +200,22 @@ function StudentsSection() {
     <div className="space-y-6">
       <SectionHeading
         title="Manage Student Info"
-        description="View and manage the students enrolled in your classes."
+        description="Search students assigned to your classes."
       />
 
-      <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
-          <thead className="bg-neutral-50">
-            <tr>
-              <th className="px-6 py-4 font-semibold text-foreground">Name</th>
-              <th className="px-6 py-4 font-semibold text-foreground">Email</th>
-              <th className="px-6 py-4 font-semibold text-foreground">Status</th>
-              <th className="px-6 py-4 font-semibold text-foreground">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {students.map((student) => (
-              <tr key={student.email}>
-                <td className="px-6 py-4 font-medium text-foreground">
-                  {student.name}
-                </td>
-                <td className="px-6 py-4 text-neutral-600">{student.email}</td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      student.status === "Active"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-neutral-100 text-neutral-600"
-                    }`}
-                  >
-                    {student.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="px-3 py-2 text-xs"
-                  >
-                    Edit
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SearchFilter role="teacher" entity="students" />
+    </div>
+  );
+}
+
+function ParticipantsSection() {
+  return (
+    <div className="space-y-6">
+      <SectionHeading
+        title="Manage Participants"
+        description="Search participant usernames, sessions, and completion status."
+      />
+      <SearchFilter role="teacher" entity="participants" />
     </div>
   );
 }

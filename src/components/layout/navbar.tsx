@@ -1,97 +1,111 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import type { MouseEvent } from "react";
 
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About Us" },
-  { href: "/about-app", label: "About the App" },
-  { href: "/signup", label: "Sign Up" },
-  { href: "/teacher-login", label: "Teacher Login" },
-  { href: "/admin-login", label: "Admin Login" },
-];
+// Easter egg: five quick clicks on the navbar Login open the admin portal.
+const LOGIN_CLICK_KEY = "fili-quizmo-login-clicks";
+const LOGIN_CLICK_WINDOW_MS = 5_000;
+const ADMIN_LOGIN_CLICK_TARGET = 5;
 
 export function Navbar() {
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
+    // Let modified clicks keep their normal browser behavior.
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    const now = Date.now();
+    let count = 1;
+
+    try {
+      const stored = window.sessionStorage.getItem(LOGIN_CLICK_KEY);
+      const previous = stored
+        ? (JSON.parse(stored) as { count?: unknown; at?: unknown })
+        : null;
+
+      if (
+        previous &&
+        typeof previous.count === "number" &&
+        typeof previous.at === "number" &&
+        now - previous.at < LOGIN_CLICK_WINDOW_MS
+      ) {
+        count = previous.count + 1;
+      }
+    } catch {
+      // Ignore storage errors and let the login link work normally.
+    }
+
+    if (count >= ADMIN_LOGIN_CLICK_TARGET) {
+      try {
+        window.sessionStorage.removeItem(LOGIN_CLICK_KEY);
+      } catch {
+        // Ignore storage errors and continue to the admin login.
+      }
+
+      event.preventDefault();
+      router.push("/admin-login");
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(
+        LOGIN_CLICK_KEY,
+        JSON.stringify({ count, at: now }),
+      );
+    } catch {
+      // Ignore storage errors and let the login link work normally.
+    }
+  }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-primary text-primary-foreground shadow-md">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          Fili-QuizMo
+    <header className="sticky top-0 z-50 w-full bg-primary/95 text-primary-foreground shadow-lg backdrop-blur">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="group flex items-center gap-2.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/Fili-QuizMo Logo.png"
+            alt=""
+            className="h-9 w-9 rounded-lg object-cover shadow-sm ring-1 ring-white/20 transition-transform group-hover:-rotate-3"
+          />
+          <span className="text-base font-bold tracking-tight sm:text-lg">
+            Fili-QuizMo
+          </span>
         </Link>
 
-        <div className="hidden md:flex">
-          <ul className="flex items-center gap-8">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="text-sm font-medium text-primary-foreground/90 transition-colors hover:text-white"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-3">
           <Link
-            href="/signup"
-            className="hidden rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-white/90 md:inline-flex"
+            href="/"
+            aria-current={pathname === "/" ? "page" : undefined}
+            className={`rounded-full px-3 py-2 text-sm font-medium transition-colors ${
+              pathname === "/"
+                ? "bg-white/10 text-white"
+                : "text-primary-foreground/75 hover:bg-white/10 hover:text-white"
+            }`}
           >
-            Get Started
+            Home
           </Link>
-
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary-foreground transition-colors hover:bg-white/10 md:hidden"
-            aria-label="Toggle navigation menu"
-            onClick={() => setOpen((prev) => !prev)}
+          <Link
+            href="/teacher-login"
+            onClick={handleLoginClick}
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              {open ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+            Login
+          </Link>
         </div>
       </nav>
 
-      {open && (
-        <div className="border-t border-white/10 bg-primary md:hidden">
-          <div className="space-y-1 px-4 py-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block rounded-lg px-3 py-2 text-base font-medium text-primary-foreground/90 transition-colors hover:bg-white/10 hover:text-white"
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-sky-400/80 via-emerald-400/70 to-amber-300/80"
+      />
     </header>
   );
 }

@@ -14,7 +14,7 @@ export default function SignupPage() {
             href="/teacher-login"
             className="font-semibold text-primary hover:underline"
           >
-            Teacher Login
+            Login
           </Link>
         </>
       }
