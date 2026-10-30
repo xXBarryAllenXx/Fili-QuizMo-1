@@ -13,6 +13,7 @@ import {
 import { getActiveFilterChips } from "@/lib/search/active-filters";
 import { defaultSearchQuery } from "@/lib/search/url-state";
 import { useSearchFilters } from "@/lib/search/use-search-filters";
+import { TRANSIENT_INPUTS_RESET_EVENT } from "@/lib/session/session-hygiene";
 import type {
   SearchEntity,
   SearchFilterKey,
@@ -60,11 +61,26 @@ function DebouncedTextInput({
     [],
   );
 
+  useEffect(() => {
+    function resetDraft() {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setDraft("");
+    }
+
+    window.addEventListener(TRANSIENT_INPUTS_RESET_EVENT, resetDraft);
+    return () =>
+      window.removeEventListener(TRANSIENT_INPUTS_RESET_EVENT, resetDraft);
+  }, []);
+
   return (
     <input
       id={id}
       type={type}
       value={draft}
+      autoComplete="off"
       maxLength={maxLength}
       placeholder={placeholder}
       aria-describedby={describedBy}
@@ -84,6 +100,16 @@ function DebouncedTextInput({
   );
 }
 
+function formatDate(value: string): string {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+}
+
 function itemValues(item: SearchItem): string[] {
   if (item.entity === "students") {
     return [
@@ -98,10 +124,11 @@ function itemValues(item: SearchItem): string[] {
   if (item.entity === "quizzes") {
     return [
       item.title,
+      item.shareCode,
       getStatusLabel("quizzes", item.status),
       String(item.questionCount),
       item.teacherUsername,
-      new Date(item.createdAt).toLocaleDateString(),
+      formatDate(item.createdAt),
     ];
   }
 
@@ -110,10 +137,9 @@ function itemValues(item: SearchItem): string[] {
       item.username,
       item.quizTitle,
       item.sessionCode,
-      item.studentSchoolId,
       getStatusLabel("participants", item.status),
-      item.score === null ? "—" : String(item.score),
-      new Date(item.joinedAt).toLocaleDateString(),
+      item.score === null ? "—" : `${item.score}%`,
+      formatDate(item.joinedAt),
     ];
   }
 
@@ -121,8 +147,7 @@ function itemValues(item: SearchItem): string[] {
     item.username,
     item.email,
     getStatusLabel("teachers", item.accountStatus),
-    String(item.quizCount),
-    new Date(item.createdAt).toLocaleDateString(),
+    formatDate(item.createdAt),
   ];
 }
 
@@ -264,6 +289,22 @@ export function SearchFilter({ role, entity }: SearchFilterProps) {
   const config = getEntityConfig(entity);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const mobileFilterButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    function closeMobileFiltersOnReset() {
+      setMobileFiltersOpen(false);
+    }
+
+    window.addEventListener(
+      TRANSIENT_INPUTS_RESET_EVENT,
+      closeMobileFiltersOnReset,
+    );
+    return () =>
+      window.removeEventListener(
+        TRANSIENT_INPUTS_RESET_EVENT,
+        closeMobileFiltersOnReset,
+      );
+  }, []);
 
   function clearAllFilters() {
     updateQuery(defaultSearchQuery(role, entity));
@@ -599,10 +640,17 @@ function resultHeaders(entity: SearchEntity): string[] {
     return ["Student", "School ID", "Email", "Enrollment status", "Account status"];
   }
   if (entity === "quizzes") {
-    return ["Quiz", "Status", "Questions", "Teacher", "Created"];
+    return [
+      "Quiz",
+      "Share code",
+      "Status",
+      "Questions",
+      "Teacher",
+      "Created",
+    ];
   }
   if (entity === "participants") {
-    return ["Username", "Quiz", "Session", "School ID", "Status", "Score", "Joined"];
+    return ["Username", "Quiz", "Session", "Status", "Score", "Joined"];
   }
-  return ["Teacher", "Email", "Account status", "Quizzes", "Created"];
+  return ["Teacher", "Email", "Account status", "Created"];
 }

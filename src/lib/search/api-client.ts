@@ -3,6 +3,7 @@ import type {
   SearchQuery,
   SearchResponse,
 } from "./types";
+import { dispatchSessionExpired } from "@/lib/session/session-hygiene";
 
 export class SearchApiError extends Error {
   readonly status: number;
@@ -114,6 +115,10 @@ export async function fetchSearchResults(
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      dispatchSessionExpired();
+    }
+
     if (isErrorBody(body)) {
       throw new SearchApiError(
         response.status,

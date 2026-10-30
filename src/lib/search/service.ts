@@ -32,27 +32,34 @@ function textValue(row: SearchRow, key: string): string {
   return String(value);
 }
 
+function toNumber(value: unknown): number | null {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function numberValue(
   row: SearchRow,
   key: string,
   fallback = 0,
 ): number {
-  const value = row[key];
-
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : fallback;
+  return toNumber(row[key]) ?? fallback;
 }
 
 function nullableNumberValue(
   row: SearchRow,
   key: string,
 ): number | null {
-  const value = row[key];
+  return toNumber(row[key]);
+}
 
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : null;
+function usernameFromEmail(email: string): string {
+  return email.split("@")[0]?.trim() ?? "";
 }
 
 export function mapSearchItem(
@@ -79,10 +86,11 @@ export function mapSearchItem(
   if (entity === "quizzes") {
     const item: QuizSearchItem = {
       entity: "quizzes",
-      id: textValue(row, "quiz_id"),
+      id: textValue(row, "session_id"),
       title: textValue(row, "title"),
       status: textValue(row, "status"),
-      questionCount: numberValue(row, "question_count"),
+      shareCode: textValue(row, "share_code"),
+      questionCount: numberValue(row, "requested_question_count"),
       teacherId: textValue(row, "teacher_id"),
       teacherUsername: textValue(row, "teacher_username"),
       createdAt: textValue(row, "created_at"),
@@ -92,33 +100,38 @@ export function mapSearchItem(
   }
 
   if (entity === "participants") {
+    const totalQuestions = numberValue(row, "total_questions");
+    const answeredCount = numberValue(row, "answered_count");
+    const completed =
+      totalQuestions > 0 && answeredCount >= totalQuestions;
+
     const item: ParticipantSearchItem = {
       entity: "participants",
-      id: textValue(row, "participant_id"),
-      username: textValue(row, "username"),
-      status: textValue(row, "status"),
-      score: nullableNumberValue(row, "score"),
-      quizId: textValue(row, "quiz_id"),
-      quizTitle: textValue(row, "quiz_title"),
+      id: textValue(row, "attempt_id"),
+      username: textValue(row, "participant_username"),
+      status: completed ? "completed" : "in_progress",
+      score: nullableNumberValue(row, "percentage"),
+      quizTitle: textValue(row, "title"),
       sessionId: textValue(row, "session_id"),
-      sessionCode: textValue(row, "session_code"),
-      studentSchoolId: textValue(row, "student_school_id"),
-      studentEmail: textValue(row, "student_email"),
+      sessionCode: textValue(row, "share_code"),
       teacherId: textValue(row, "teacher_id"),
       teacherUsername: textValue(row, "teacher_username"),
-      joinedAt: textValue(row, "joined_at"),
+      joinedAt: textValue(row, "recorded_at"),
     };
 
     return item;
   }
 
+  const email = textValue(row, "email");
   const item: TeacherSearchItem = {
     entity: "teachers",
-    id: textValue(row, "teacher_id"),
-    username: textValue(row, "username"),
-    email: textValue(row, "email"),
-    accountStatus: textValue(row, "account_status"),
-    quizCount: numberValue(row, "quiz_count"),
+    id: textValue(row, "id"),
+    username: usernameFromEmail(email),
+    email,
+    accountStatus: textValue(row, "status"),
+    // teacher_accounts has no foreign key to quiz_sessions, so a per-teacher
+    // quiz count cannot be derived from this row.
+    quizCount: null,
     createdAt: textValue(row, "created_at"),
   };
 

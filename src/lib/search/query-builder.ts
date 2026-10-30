@@ -51,6 +51,16 @@ export function buildSearchPlan(
   }
 
   const config = getEntityConfig(query.entity);
+
+  if (!config.table) {
+    throw new SearchError(
+      503,
+      "SEARCH_NOT_AVAILABLE",
+      `The ${config.label.toLowerCase()} search is not available in this deployment.`,
+      { entity: query.entity },
+    );
+  }
+
   const filters: SearchPlanFilter[] = [];
 
   // The permission scope is always the first filter. User-supplied filters
@@ -63,7 +73,11 @@ export function buildSearchPlan(
     });
   }
 
-  if (query.status && config.filters.includes("status")) {
+  if (
+    query.status &&
+    config.statusColumn &&
+    config.filters.includes("status")
+  ) {
     filters.push({
       column: config.statusColumn,
       operator: "eq",
@@ -93,7 +107,7 @@ export function buildSearchPlan(
 
   if (query.quiz && config.filters.includes("quiz")) {
     filters.push({
-      column: "quiz_title",
+      column: "title",
       operator: "ilike",
       value: containsPattern(query.quiz),
     });
@@ -101,7 +115,7 @@ export function buildSearchPlan(
 
   if (query.session && config.filters.includes("session")) {
     filters.push({
-      column: "session_code",
+      column: "session_id",
       operator: "ilike",
       value: containsPattern(query.session),
     });
@@ -127,7 +141,7 @@ export function buildSearchPlan(
 
   return {
     entity: query.entity,
-    view: config.view,
+    table: config.table,
     select: [...config.select],
     filters,
     search: query.q

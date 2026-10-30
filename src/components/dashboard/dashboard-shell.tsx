@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
+import { useClickOutside } from "@/lib/hooks/use-click-outside";
 
 export type DashboardNavItem = {
   key: string;
@@ -28,16 +29,73 @@ export function DashboardShell({
   onLogout,
   children,
 }: DashboardShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  const routeKey = `${pathname}?${search}`;
+  const [sidebarState, setSidebarState] = useState({
+    routeKey,
+    open: false,
+  });
+  const sidebarOpen =
+    sidebarState.routeKey === routeKey && sidebarState.open;
   const [profileOpen, setProfileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const router = useRouter();
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
 
   const loginRoute = role === "Teacher" ? "/teacher-login" : "/admin-login";
 
+  const closeSidebar = useCallback((restoreFocus = false) => {
+    setSidebarState({ routeKey, open: false });
+    if (restoreFocus) {
+      sidebarToggleRef.current?.focus();
+    }
+  }, [routeKey]);
+
+  useClickOutside(
+    sidebarRef,
+    sidebarToggleRef,
+    () => closeSidebar(),
+    sidebarOpen,
+  );
+
+  useEffect(() => {
+    if (sidebarOpen) {
+      sidebarRef.current
+        ?.querySelector<HTMLElement>("nav button:not([disabled])")
+        ?.focus();
+    }
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    function handlePopState() {
+      closeSidebar();
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeSidebar]);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeSidebar(true);
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [closeSidebar, sidebarOpen]);
+
   function handleNavigate(key: string) {
     onNavigate(key);
-    setSidebarOpen(false);
+    closeSidebar(true);
     setProfileOpen(false);
   }
 
@@ -63,11 +121,13 @@ export function DashboardShell({
           type="button"
           aria-label="Close sidebar"
           className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => closeSidebar(true)}
         />
       ) : null}
 
       <aside
+        id="dashboard-sidebar"
+        ref={sidebarRef}
         className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-primary text-primary-foreground transition-transform duration-200 lg:static lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -120,8 +180,15 @@ export function DashboardShell({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
+              ref={sidebarToggleRef}
+              onClick={() =>
+                sidebarOpen
+                  ? closeSidebar(true)
+                  : setSidebarState({ routeKey, open: true })
+              }
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+              aria-expanded={sidebarOpen}
+              aria-controls="dashboard-sidebar"
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 lg:hidden"
             >
               <svg

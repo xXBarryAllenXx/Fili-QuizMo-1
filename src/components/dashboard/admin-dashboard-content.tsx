@@ -15,21 +15,29 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { SearchFilter } from "@/components/dashboard/search-filter";
 import { defaultSearchQuery } from "@/lib/search/url-state";
-import { createClient } from "@/lib/supabase/client";
+import { logoutAndRedirect } from "@/lib/session/session-hygiene";
+import type {
+  AdminDashboardData,
+  AdminDashboardStats,
+} from "@/lib/dashboard/types";
+
 
 const navItems: DashboardNavItem[] = [
   { key: "quizzes", label: "Manage Quizzes" },
-  { key: "teacher-data", label: "Manage Teacher Data" },
   { key: "teacher-accounts", label: "Manage Teacher Accounts" },
   { key: "participants", label: "Manage Participants" },
 ];
 
-export default function AdminDashboardContent() {
+export default function AdminDashboardContent({
+  data,
+}: {
+  data: AdminDashboardData;
+}) {
   const searchParams = useSearchParams();
   const entity = searchParams.get("entity");
   const searchActiveKey =
     entity === "teachers"
-      ? "teacher-data"
+      ? "teacher-accounts"
       : entity === "participants"
         ? "participants"
         : "quizzes";
@@ -50,15 +58,13 @@ export default function AdminDashboardContent() {
 
   function navigateToSection(key: string) {
     setManualActiveKey(
-      key === "teacher-data" ||
-        key === "teacher-accounts" ||
+      key === "teacher-accounts" ||
         key === "participants" ||
         key === "quizzes"
         ? null
         : key,
     );
     if (
-      key !== "teacher-data" &&
       key !== "teacher-accounts" &&
       key !== "participants" &&
       key !== "quizzes"
@@ -67,7 +73,7 @@ export default function AdminDashboardContent() {
     }
 
     const entity =
-      key === "teacher-data" || key === "teacher-accounts"
+      key === "teacher-accounts"
         ? "teachers"
         : key === "participants"
           ? "participants"
@@ -82,14 +88,7 @@ export default function AdminDashboardContent() {
     setLogoutError("");
 
     try {
-      const { error } = await createClient().auth.signOut();
-      if (error) {
-        setLogoutError(error.message);
-        return;
-      }
-
-      router.replace("/admin-login");
-      router.refresh();
+      await logoutAndRedirect(router, "/admin-login");
     } catch (error) {
       setLogoutError(
         error instanceof Error ? error.message : "Unable to log out.",
@@ -110,11 +109,29 @@ export default function AdminDashboardContent() {
           Unable to log out: {logoutError}
         </p>
       ) : null}
-      {activeKey === "quizzes" && <ManageQuizzesSection />}
-      {activeKey === "teacher-data" && <TeacherDataSection />}
+      {data.errors.length > 0 ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-800"
+        >
+          <p className="font-semibold">
+            Some dashboard data could not be loaded.
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {data.errors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {activeKey === "quizzes" && (
+        <ManageQuizzesSection stats={data.stats} />
+      )}
       {activeKey === "teacher-accounts" && <TeacherAccountsSection />}
       {activeKey === "participants" && <ParticipantsSection />}
-      {activeKey === "settings" && <AdminSettingsSection />}
+      {activeKey === "settings" && (
+        <AdminSettingsSection email={data.email} />
+      )}
     </DashboardShell>
   );
 }
@@ -143,7 +160,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ManageQuizzesSection() {
+function ManageQuizzesSection({ stats }: { stats: AdminDashboardStats }) {
   return (
     <div className="space-y-6">
       <SectionHeading
@@ -152,25 +169,12 @@ function ManageQuizzesSection() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Quizzes" value="12" />
-        <StatCard label="Published" value="9" />
-        <StatCard label="Drafts" value="3" />
+        <StatCard label="Total Quizzes" value={String(stats.totalQuizzes)} />
+        <StatCard label="Ready Sessions" value={String(stats.readyQuizzes)} />
+        <StatCard label="Quiz Results" value={String(stats.totalResults)} />
       </div>
 
       <SearchFilter role="admin" entity="quizzes" />
-    </div>
-  );
-}
-
-function TeacherDataSection() {
-  return (
-    <div className="space-y-6">
-      <SectionHeading
-        title="Manage Teacher Data"
-        description="Review teacher profiles and subject assignments."
-      />
-
-      <SearchFilter role="admin" entity="teachers" />
     </div>
   );
 }
@@ -200,7 +204,7 @@ function ParticipantsSection() {
   );
 }
 
-function AdminSettingsSection() {
+function AdminSettingsSection({ email }: { email: string }) {
   const [saved, setSaved] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -222,7 +226,7 @@ function AdminSettingsSection() {
             id="admin-display-name"
             name="displayName"
             type="text"
-            defaultValue="Administrator"
+            defaultValue="Admin"
             required
           />
           <FormField
@@ -230,7 +234,7 @@ function AdminSettingsSection() {
             id="admin-settings-email"
             name="email"
             type="email"
-            defaultValue="admin@example.com"
+            defaultValue={email || "admin@example.com"}
             required
           />
           <label className="flex items-center gap-3 text-sm text-neutral-600">

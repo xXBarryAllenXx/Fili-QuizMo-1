@@ -21,6 +21,7 @@ export function AdminLoginForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setErrorMessage("");
     setIsLoading(true);
 
@@ -73,6 +74,7 @@ export function AdminLoginForm() {
         }
 
         if (assurance.currentLevel === "aal2") {
+          form.reset();
           router.replace("/admin-dashboard");
           router.refresh();
           return;
@@ -164,6 +166,7 @@ export function AdminLoginForm() {
         return;
       }
 
+      form.reset();
       router.replace("/admin-dashboard");
       router.refresh();
     } catch (error) {

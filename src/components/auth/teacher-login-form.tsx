@@ -15,6 +15,7 @@ export function TeacherLoginForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setErrorMessage("");
     setIsLoading(true);
 
@@ -41,7 +42,7 @@ export function TeacherLoginForm() {
       const { data: teacher_accountsRow, error: teacher_accountsError } = await supabase
         .from("teacher_accounts")
         .select("school_id")
-        .eq("school_id", userData.user.id)
+        .eq("user_id", userData.user.id)
         .maybeSingle();
 
       if (teacher_accountsError || !teacher_accountsRow) {
@@ -54,6 +55,7 @@ export function TeacherLoginForm() {
         return;
       }
 
+      form.reset();
       router.replace("/teacher-dashboard");
       router.refresh();
     } catch (error) {

@@ -4,66 +4,84 @@ import { createSearchScope } from "./scope";
 import { executeSearch } from "./service";
 import { defaultSearchQuery } from "./url-state";
 import { parseSearchQuery } from "./validation";
-import type { SearchRow } from "./types";
+import type { SearchEntity, SearchRow } from "./types";
 
-const rows: Record<"students" | "quizzes" | "participants" | "teachers", SearchRow[]> = {
-  students: [
+const rows: Record<SearchEntity, SearchRow[]> = {
+  students: [],
+  quizzes: [
     {
-      student_id: "student-a",
+      session_id: "quiz-a",
       teacher_id: "teacher-a",
-      name: "Own Student",
-      school_id: "OWN-01",
-      email: "own@example.test",
-      enrollment_status: "active",
-      account_status: "active",
+      teacher_username: "msantos",
+      title: "Own Quiz",
+      status: "ready",
+      share_code: "AAA111",
+      requested_question_count: 5,
       created_at: "2026-01-01T00:00:00.000Z",
     },
     {
-      student_id: "student-b",
+      session_id: "quiz-b",
       teacher_id: "teacher-b",
-      name: "Other Student",
-      school_id: "OTHER-01",
-      email: "other@example.test",
-      enrollment_status: "active",
-      account_status: "active",
+      teacher_username: "jdelacruz",
+      title: "Other Quiz",
+      status: "ready",
+      share_code: "BBB222",
+      requested_question_count: 8,
       created_at: "2026-01-02T00:00:00.000Z",
     },
   ],
-  quizzes: [],
   participants: [
     {
-      participant_id: "participant-a",
+      attempt_id: "attempt-a",
+      session_id: "quiz-a",
       teacher_id: "teacher-a",
-      student_teacher_id: "teacher-a",
-      username: "own_student",
-      status: "completed",
-      joined_at: "2026-01-01T00:00:00.000Z",
+      teacher_username: "msantos",
+      title: "Own Quiz",
+      share_code: "AAA111",
+      participant_username: "own_student",
+      correct_count: 4,
+      total_questions: 5,
+      answered_count: 5,
+      percentage: 80,
+      final_score: "4/5",
+      started_at: "2026-01-01T00:00:00.000Z",
+      completed_at: "2026-01-01T00:05:00.000Z",
+      recorded_at: "2026-01-01T00:05:00.000Z",
     },
     {
-      participant_id: "participant-b",
-      teacher_id: "teacher-a",
-      student_teacher_id: "teacher-b",
-      username: "other_student",
-      status: "completed",
-      joined_at: "2026-01-02T00:00:00.000Z",
+      attempt_id: "attempt-b",
+      session_id: "quiz-b",
+      teacher_id: "teacher-b",
+      teacher_username: "jdelacruz",
+      title: "Other Quiz",
+      share_code: "BBB222",
+      participant_username: "other_student",
+      correct_count: 6,
+      total_questions: 8,
+      answered_count: 8,
+      percentage: 75,
+      final_score: "6/8",
+      started_at: "2026-01-02T00:00:00.000Z",
+      completed_at: "2026-01-02T00:05:00.000Z",
+      recorded_at: "2026-01-02T00:05:00.000Z",
     },
   ],
   teachers: [],
 };
 
 describe("search service role scoping", () => {
-  it("only returns students owned by the authenticated teacher", async () => {
+  it("only returns quizzes owned by the authenticated teacher", async () => {
     const context = createSearchScope({
       role: "teacher",
       userId: "teacher-a",
     });
     const response = await executeSearch({
       context,
-      query: defaultSearchQuery("teacher", "students"),
+      query: defaultSearchQuery("teacher", "quizzes"),
       repository: new MockSearchRepository(rows),
     });
 
-    expect(response.items.map((item) => item.id)).toEqual(["student-a"]);
+    expect(response.items.map((item) => item.id)).toEqual(["quiz-a"]);
     expect(response.meta.scope).toBe("own-records");
   });
 
@@ -84,19 +102,41 @@ describe("search service role scoping", () => {
       repository: new MockSearchRepository(rows),
     });
 
-    expect(response.items.map((item) => item.id)).toEqual(["participant-a"]);
+    expect(response.items.map((item) => item.id)).toEqual(["attempt-a"]);
+  });
+
+  it("derives participant status from answered and total questions", async () => {
+    const context = createSearchScope({
+      role: "teacher",
+      userId: "teacher-a",
+    });
+    const response = await executeSearch({
+      context,
+      query: defaultSearchQuery("teacher", "participants"),
+      repository: new MockSearchRepository(rows),
+    });
+
+    const [participant] = response.items;
+
+    expect(participant).toMatchObject({
+      entity: "participants",
+      status: "completed",
+      score: 80,
+      quizTitle: "Own Quiz",
+      sessionCode: "AAA111",
+    });
   });
 
   it("allows an admin to search across teachers", async () => {
     const response = await executeSearch({
       context: createSearchScope({ role: "admin", userId: "admin-id" }),
-      query: defaultSearchQuery("admin", "students"),
+      query: defaultSearchQuery("admin", "quizzes"),
       repository: new MockSearchRepository(rows),
     });
 
     expect(response.items.map((item) => item.id).sort()).toEqual([
-      "student-a",
-      "student-b",
+      "quiz-a",
+      "quiz-b",
     ]);
     expect(response.meta.scope).toBe("all-records");
   });

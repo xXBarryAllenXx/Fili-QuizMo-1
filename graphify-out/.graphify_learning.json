@@ -1,5 +1,150 @@
 {
-  "generated_at": "2026-10-29T05:16:52.126925+00:00",
-  "nodes": {},
+  "generated_at": "2026-10-30T02:10:31.856874+00:00",
+  "nodes": {
+    "package_dependencies_next": {
+      "code_fingerprint": "d26277151d87f8744d9147928d18951b7fc29931bd1de12772043c2b2105bb21",
+      "label": "next@16.4.3",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "package.json",
+      "status": "tentative",
+      "uses": 1
+    },
+    "ref_next": {
+      "code_fingerprint": "d26277151d87f8744d9147928d18951b7fc29931bd1de12772043c2b2105bb21",
+      "label": "next",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "package.json",
+      "status": "tentative",
+      "uses": 1
+    },
+    "ref_react": {
+      "code_fingerprint": "d26277151d87f8744d9147928d18951b7fc29931bd1de12772043c2b2105bb21",
+      "label": "react",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "package.json",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_auth_admin_login_form_adminloginform": {
+      "code_fingerprint": "0cb335ea8c8f4946bacedf3e8291238ab6ec35f908ab7a4f0639cb889a0f061c",
+      "label": "AdminLoginForm()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/auth/admin-login-form.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_auth_auth_shell_authshell": {
+      "code_fingerprint": "8819f760523176d4ea5907decf894aa6628e7d08d7994c2ac5fe8b368a20ff17",
+      "label": "AuthShell()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/auth/auth-shell.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_dashboard_dashboard_shell_dashboardshell": {
+      "code_fingerprint": "01f126003bf6d19b922ccc7a9650c5bd47edffc0021c9f2338fd10c389b8399d",
+      "label": "DashboardShell()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/dashboard/dashboard-shell.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_dashboard_teacher_dashboard_content_teacherdashboardcontent": {
+      "code_fingerprint": "04b07986989bd6aa643bf6dcf6c933f1cdf2ed87f89faa7c435f7fbd54d9d03f",
+      "label": "TeacherDashboardContent()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/dashboard/teacher-dashboard-content.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_ui_button_button": {
+      "code_fingerprint": "3588f754d5a9742d9c665104d76d5ad412a34985eadd29ad5a7f7a752501b130",
+      "label": "Button()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/ui/button.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_components_ui_form_field_formfield": {
+      "code_fingerprint": "c600749d6ecfe41f568698747003dfba87a11aeb4c83aad02e7f6b7088c99ee2",
+      "label": "FormField()",
+      "last": "2026-10-29T05:19:21.443596+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-29T05:19:21.443596+00:00",
+          "outcome": "useful",
+          "q": "Why does \\\next\\ connect Auth Pages and Forms to Build Config and Dependencies, Teacher Dashboard UI, Public Pages and Navigation, Supabase Auth and Routing, Root Layout and Fonts?"
+        }
+      ],
+      "score": 0.980124993,
+      "source_file": "src/components/ui/form-field.tsx",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
   "version": 1
 }

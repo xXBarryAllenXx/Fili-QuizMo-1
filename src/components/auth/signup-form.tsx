@@ -10,6 +10,7 @@ export function SignupForm() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    event.currentTarget.reset();
     router.push("/teacher-login");
   }
 

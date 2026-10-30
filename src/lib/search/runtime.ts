@@ -17,7 +17,9 @@ export function getSearchDataSource(): SearchDataSource {
     return configured;
   }
 
-  return process.env.NODE_ENV === "development" ? "mock" : "supabase";
+  // The dashboards must read deployed Supabase data by default. Mock rows are
+  // opt-in only, so development cannot silently show fake records.
+  return "supabase";
 }
 
 export function createSearchRepository(input: {

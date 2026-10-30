@@ -16,52 +16,29 @@ import { Button } from "@/components/ui/button";
 import { SearchFilter } from "@/components/dashboard/search-filter";
 import { FormField } from "@/components/ui/form-field";
 import { defaultSearchQuery } from "@/lib/search/url-state";
-import { createClient } from "@/lib/supabase/client";
+import { logoutAndRedirect } from "@/lib/session/session-hygiene";
+import type { TeacherDashboardData } from "@/lib/dashboard/types";
 
 const navItems: DashboardNavItem[] = [
   { key: "quizzes", label: "View Quizzes" },
-  { key: "students", label: "Manage Student Info" },
   { key: "participants", label: "Manage Participants" },
   { key: "scores", label: "View Scores" },
   { key: "settings", label: "Settings" },
 ];
 
-const scores = [
-  {
-    student: "Maria Santos",
-    quiz: "General Knowledge Quiz",
-    score: "92%",
-    status: "Excellent",
-  },
-  {
-    student: "Juan Dela Cruz",
-    quiz: "Science Fundamentals",
-    score: "78%",
-    status: "Good",
-  },
-  {
-    student: "Ana Reyes",
-    quiz: "Math Essentials",
-    score: "64%",
-    status: "Needs Improvement",
-  },
-  {
-    student: "Carlo Mendoza",
-    quiz: "English Vocabulary",
-    score: "88%",
-    status: "Good",
-  },
-];
+function resultStatusLabel(status: "completed" | "in_progress"): string {
+  return status === "completed" ? "Completed" : "In progress";
+}
 
-export default function TeacherDashboardContent() {
+export default function TeacherDashboardContent({
+  data,
+}: {
+  data: TeacherDashboardData;
+}) {
   const searchParams = useSearchParams();
   const entity = searchParams.get("entity");
   const searchActiveKey =
-    entity === "students"
-      ? "students"
-      : entity === "participants"
-        ? "participants"
-        : "quizzes";
+    entity === "participants" ? "participants" : "quizzes";
   const [manualActiveKey, setManualActiveKey] = useState<string | null>(null);
   const activeKey = manualActiveKey ?? searchActiveKey;
   const [logoutError, setLogoutError] = useState("");
@@ -79,20 +56,13 @@ export default function TeacherDashboardContent() {
 
   function navigateToSection(key: string) {
     setManualActiveKey(
-      key === "students" || key === "participants" || key === "quizzes"
-        ? null
-        : key,
+      key === "participants" || key === "quizzes" ? null : key,
     );
-    if (key !== "students" && key !== "participants" && key !== "quizzes") {
+    if (key !== "participants" && key !== "quizzes") {
       return;
     }
 
-    const entity =
-      key === "students"
-        ? "students"
-        : key === "participants"
-          ? "participants"
-          : "quizzes";
+    const entity = key === "participants" ? "participants" : "quizzes";
     const params = new URLSearchParams();
     const query = defaultSearchQuery("teacher", entity);
     params.set("entity", query.entity);
@@ -103,14 +73,7 @@ export default function TeacherDashboardContent() {
     setLogoutError("");
 
     try {
-      const { error } = await createClient().auth.signOut();
-      if (error) {
-        setLogoutError(error.message);
-        return;
-      }
-
-      router.replace("/teacher-login");
-      router.refresh();
+      await logoutAndRedirect(router, "/teacher-login");
     } catch (error) {
       setLogoutError(
         error instanceof Error ? error.message : "Unable to log out.",
@@ -131,11 +94,25 @@ export default function TeacherDashboardContent() {
           Unable to log out: {logoutError}
         </p>
       ) : null}
-      {activeKey === "quizzes" && <QuizzesSection />}
-      {activeKey === "students" && <StudentsSection />}
+      {data.errors.length > 0 ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-800"
+        >
+          <p className="font-semibold">
+            Some dashboard data could not be loaded.
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {data.errors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {activeKey === "quizzes" && <QuizzesSection data={data} />}
       {activeKey === "participants" && <ParticipantsSection />}
-      {activeKey === "scores" && <ScoresSection />}
-      {activeKey === "settings" && <SettingsSection />}
+      {activeKey === "scores" && <ScoresSection data={data} />}
+      {activeKey === "settings" && <SettingsSection data={data} />}
     </DashboardShell>
   );
 }
@@ -164,18 +141,27 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function QuizzesSection() {
+function QuizzesSection({ data }: { data: TeacherDashboardData }) {
   return (
     <div className="space-y-6">
       <SectionHeading
         title="View Quizzes"
-        description="Review your quiz library and overall class performance."
+        description={`Signed in as ${data.username}. Review your quiz library and overall class performance.`}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Quizzes" value="12" />
-        <StatCard label="Active Students" value="48" />
-        <StatCard label="Average Score" value="82%" />
+        <StatCard
+          label="Total Quizzes"
+          value={String(data.stats.totalQuizzes)}
+        />
+        <StatCard
+          label="Quiz Results"
+          value={String(data.stats.totalResults)}
+        />
+        <StatCard
+          label="Average Score"
+          value={`${data.stats.averageScore}%`}
+        />
       </div>
 
       <SearchFilter role="teacher" entity="quizzes" />
@@ -188,22 +174,9 @@ function QuizzesSection() {
           Latest quiz performance across score bands.
         </p>
         <div className="mt-6">
-          <PieChart />
+          <PieChart distributions={data.distributions} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function StudentsSection() {
-  return (
-    <div className="space-y-6">
-      <SectionHeading
-        title="Manage Student Info"
-        description="Search students assigned to your classes."
-      />
-
-      <SearchFilter role="teacher" entity="students" />
     </div>
   );
 }
@@ -220,7 +193,7 @@ function ParticipantsSection() {
   );
 }
 
-function ScoresSection() {
+function ScoresSection({ data }: { data: TeacherDashboardData }) {
   return (
     <div className="space-y-6">
       <SectionHeading
@@ -230,34 +203,54 @@ function ScoresSection() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
-            <thead className="bg-neutral-50">
-              <tr>
-                <th className="px-6 py-4 font-semibold text-foreground">
-                  Student
-                </th>
-                <th className="px-6 py-4 font-semibold text-foreground">Quiz</th>
-                <th className="px-6 py-4 font-semibold text-foreground">Score</th>
-                <th className="px-6 py-4 font-semibold text-foreground">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {scores.map((score) => (
-                <tr key={`${score.student}-${score.quiz}`}>
-                  <td className="px-6 py-4 font-medium text-foreground">
-                    {score.student}
-                  </td>
-                  <td className="px-6 py-4 text-neutral-600">{score.quiz}</td>
-                  <td className="px-6 py-4 font-semibold text-foreground">
-                    {score.score}
-                  </td>
-                  <td className="px-6 py-4 text-neutral-600">{score.status}</td>
+          {data.results.length === 0 ? (
+            <p className="p-6 text-sm text-neutral-600">
+              No quiz results have been recorded for your quizzes yet.
+            </p>
+          ) : (
+            <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="px-6 py-4 font-semibold text-foreground">
+                    Student
+                  </th>
+                  <th className="px-6 py-4 font-semibold text-foreground">
+                    Quiz
+                  </th>
+                  <th className="px-6 py-4 font-semibold text-foreground">
+                    Score
+                  </th>
+                  <th className="px-6 py-4 font-semibold text-foreground">
+                    Share code
+                  </th>
+                  <th className="px-6 py-4 font-semibold text-foreground">
+                    Status
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {data.results.map((result) => (
+                  <tr key={result.attemptId}>
+                    <td className="px-6 py-4 font-medium text-foreground">
+                      {result.participantUsername}
+                    </td>
+                    <td className="px-6 py-4 text-neutral-600">
+                      {result.title}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-foreground">
+                      {result.percentage}%
+                    </td>
+                    <td className="px-6 py-4 text-neutral-600">
+                      {result.shareCode || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-neutral-600">
+                      {resultStatusLabel(result.status)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -268,7 +261,7 @@ function ScoresSection() {
             Student score distribution per quiz.
           </p>
           <div className="mt-6">
-            <PieChart />
+            <PieChart distributions={data.distributions} />
           </div>
         </div>
       </div>
@@ -276,7 +269,7 @@ function ScoresSection() {
   );
 }
 
-function SettingsSection() {
+function SettingsSection({ data }: { data: TeacherDashboardData }) {
   const [saved, setSaved] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -298,7 +291,7 @@ function SettingsSection() {
             id="teacher-display-name"
             name="displayName"
             type="text"
-            defaultValue="Teacher Account"
+            defaultValue={data.username}
             required
           />
           <FormField
@@ -306,7 +299,7 @@ function SettingsSection() {
             id="teacher-settings-email"
             name="email"
             type="email"
-            defaultValue="teacher@example.com"
+            defaultValue={data.email || "teacher@example.com"}
             required
           />
           <label className="flex items-center gap-3 text-sm text-neutral-600">

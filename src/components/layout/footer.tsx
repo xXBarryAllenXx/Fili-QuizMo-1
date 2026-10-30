@@ -35,8 +35,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-4 text-sm leading-6 text-primary-foreground/75">
-              An interactive quiz platform built for learners, teachers, and
-              admins.
+              An interactive quiz platform built for learners, and teachers.
             </p>
           </div>
 

@@ -46,7 +46,7 @@ export function mapSearchDbError(error: SearchDbError): SearchError {
     return new SearchError(
       503,
       "SEARCH_NOT_CONFIGURED",
-      "The search views are not installed yet. Apply the search migration in supabase/migrations, then try again.",
+      "The search data source is not available. Confirm the Supabase tables are deployed, then try again.",
       { code: error.code },
     );
   }
@@ -77,7 +77,7 @@ export class SupabaseSearchRepository implements SearchRepository {
     plan: SearchPlan,
   ): Promise<{ rows: SearchRow[]; total: number }> {
     let query = (
-      this.client.from(plan.view) as SearchBuilder
+      this.client.from(plan.table) as SearchBuilder
     ).select(plan.select.join(","), { count: "exact" });
 
     for (const filter of plan.filters) {

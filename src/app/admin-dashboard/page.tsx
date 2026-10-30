@@ -1,9 +1,18 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import AdminDashboardContent from "@/components/dashboard/admin-dashboard-content";
+import { LoadingScreen } from "@/components/ui/loading-screen";
+import { getAdminDashboardData } from "@/lib/dashboard/data";
 import { createClient } from "@/lib/supabase/server";
 
 export default function AdminDashboardPage() {
-  return <ProtectedAdminDashboard />;
+  return (
+    <Suspense
+      fallback={<LoadingScreen label="Verifying admin session..." fullScreen />}
+    >
+      <ProtectedAdminDashboard />
+    </Suspense>
+  );
 }
 
 async function ProtectedAdminDashboard() {
@@ -21,13 +30,13 @@ async function ProtectedAdminDashboard() {
     redirect("/admin-login");
   }
 
-  const { data: admin_accountsRow, error: admin_accountsError } = await supabase
-          .from("admin_accounts")
-          .select("user_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+  const { data: adminAccount, error: adminAccountError } = await supabase
+    .from("admin_accounts")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (admin_accountsError || !admin_accountsRow) {
+  if (adminAccountError || !adminAccount) {
     redirect("/admin-login?error=unauthorized");
   }
 
@@ -42,5 +51,10 @@ async function ProtectedAdminDashboard() {
     redirect("/admin-login?mfa=required");
   }
 
-  return <AdminDashboardContent />;
+  const data = await getAdminDashboardData(
+    supabase,
+    user.email?.trim() ?? "",
+  );
+
+  return <AdminDashboardContent data={data} />;
 }

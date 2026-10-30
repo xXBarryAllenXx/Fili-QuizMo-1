@@ -61,7 +61,7 @@ export type SearchPlanFilter = {
 
 export type SearchPlan = {
   entity: SearchEntity;
-  view: string;
+  table: string;
   select: string[];
   filters: SearchPlanFilter[];
   search: {
@@ -107,6 +107,7 @@ export type QuizSearchItem = {
   id: string;
   title: string;
   status: string;
+  shareCode: string;
   questionCount: number;
   teacherId: string;
   teacherUsername: string;
@@ -119,12 +120,9 @@ export type ParticipantSearchItem = {
   username: string;
   status: string;
   score: number | null;
-  quizId: string;
   quizTitle: string;
   sessionId: string;
   sessionCode: string;
-  studentSchoolId: string;
-  studentEmail: string;
   teacherId: string;
   teacherUsername: string;
   joinedAt: string;
@@ -136,7 +134,7 @@ export type TeacherSearchItem = {
   username: string;
   email: string;
   accountStatus: string;
-  quizCount: number;
+  quizCount: number | null;
   createdAt: string;
 };
 

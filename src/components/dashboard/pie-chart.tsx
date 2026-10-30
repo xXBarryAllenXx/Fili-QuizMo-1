@@ -1,60 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ScoreDistribution } from "@/lib/dashboard/types";
+import { TRANSIENT_INPUTS_RESET_EVENT } from "@/lib/session/session-hygiene";
 
-const quizDistributions = [
-  {
-    quiz: "General Knowledge Quiz",
-    average: 82,
-    bands: [
-      { label: "Excellent (90–100)", value: 35, color: "#0f1f3d" },
-      { label: "Good (75–89)", value: 30, color: "#1d4ed8" },
-      { label: "Needs Improvement (50–74)", value: 20, color: "#60a5fa" },
-      { label: "At Risk (below 50)", value: 15, color: "#cbd5e1" },
-    ],
-  },
-  {
-    quiz: "Science Fundamentals",
-    average: 78,
-    bands: [
-      { label: "Excellent (90–100)", value: 28, color: "#0f1f3d" },
-      { label: "Good (75–89)", value: 34, color: "#1d4ed8" },
-      { label: "Needs Improvement (50–74)", value: 24, color: "#60a5fa" },
-      { label: "At Risk (below 50)", value: 14, color: "#cbd5e1" },
-    ],
-  },
-  {
-    quiz: "Math Essentials",
-    average: 71,
-    bands: [
-      { label: "Excellent (90–100)", value: 22, color: "#0f1f3d" },
-      { label: "Good (75–89)", value: 28, color: "#1d4ed8" },
-      { label: "Needs Improvement (50–74)", value: 32, color: "#60a5fa" },
-      { label: "At Risk (below 50)", value: 18, color: "#cbd5e1" },
-    ],
-  },
-  {
-    quiz: "English Vocabulary",
-    average: 86,
-    bands: [
-      { label: "Excellent (90–100)", value: 40, color: "#0f1f3d" },
-      { label: "Good (75–89)", value: 32, color: "#1d4ed8" },
-      { label: "Needs Improvement (50–74)", value: 18, color: "#60a5fa" },
-      { label: "At Risk (below 50)", value: 10, color: "#cbd5e1" },
-    ],
-  },
-];
-
-export function PieChart() {
-  const [mounted, setMounted] = useState(false);
+export function PieChart({
+  distributions,
+}: {
+  distributions: ScoreDistribution[];
+}) {
   const [selectedQuiz, setSelectedQuiz] = useState(0);
 
   useEffect(() => {
-    setMounted(true);
+    function resetSelectedQuiz() {
+      setSelectedQuiz(0);
+    }
+
+    window.addEventListener(TRANSIENT_INPUTS_RESET_EVENT, resetSelectedQuiz);
+    return () =>
+      window.removeEventListener(
+        TRANSIENT_INPUTS_RESET_EVENT,
+        resetSelectedQuiz,
+      );
   }, []);
 
-  const distribution = quizDistributions[selectedQuiz];
-  let offset = 0;
+  const selectedIndex = Math.min(
+    selectedQuiz,
+    Math.max(distributions.length - 1, 0),
+  );
+  const distribution = distributions[selectedIndex];
+
+  if (!distribution) {
+    return (
+      <p className="rounded-xl bg-neutral-50 p-6 text-sm text-neutral-600">
+        No score data is available for your quizzes yet.
+      </p>
+    );
+  }
+
+  const bandOffsets = distribution.bands.map((_, index) =>
+    distribution.bands
+      .slice(0, index)
+      .reduce((sum, band) => sum + band.value, 0),
+  );
 
   return (
     <div className="space-y-6">
@@ -67,12 +55,12 @@ export function PieChart() {
         </label>
         <select
           id="score-quiz-select"
-          value={selectedQuiz}
+          value={selectedIndex}
           onChange={(event) => setSelectedQuiz(Number(event.target.value))}
           className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
         >
-          {quizDistributions.map((item, index) => (
-            <option key={item.quiz} value={index}>
+          {distributions.map((item, index) => (
+            <option key={`${item.quiz}-${index}`} value={index}>
               {item.quiz}
             </option>
           ))}
@@ -82,31 +70,24 @@ export function PieChart() {
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
         <div className="relative h-48 w-48 shrink-0">
           <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-            {distribution.bands.map((item) => {
-              const currentOffset = offset;
-              offset += item.value;
-
-              return (
-                <circle
-                  key={item.label}
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke={item.color}
-                  strokeWidth="20"
-                  pathLength="100"
-                  strokeDasharray={
-                    mounted ? `${item.value} ${100 - item.value}` : "0 100"
-                  }
-                  strokeDashoffset={-currentOffset}
-                  style={{
-                    transition:
-                      "stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out",
-                  }}
-                />
-              );
-            })}
+            {distribution.bands.map((item, index) => (
+              <circle
+                key={item.label}
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke={item.color}
+                strokeWidth="20"
+                pathLength="100"
+                strokeDasharray={`${item.value} ${100 - item.value}`}
+                strokeDashoffset={-bandOffsets[index]}
+                style={{
+                  transition:
+                    "stroke-dasharray 1s ease-out, stroke-dashoffset 1s ease-out",
+                }}
+              />
+            ))}
           </svg>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">

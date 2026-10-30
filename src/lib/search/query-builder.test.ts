@@ -6,8 +6,7 @@ import { parseSearchQuery } from "./validation";
 
 describe("buildSearchPlan", () => {
   it("adds a trusted teacher scope before user filters", () => {
-    const query = defaultSearchQuery("teacher", "students");
-    query.status = "active";
+    const query = defaultSearchQuery("teacher", "quizzes");
     query.page = 3;
     query.pageSize = 10;
 
@@ -16,6 +15,7 @@ describe("buildSearchPlan", () => {
       createSearchScope({ role: "teacher", userId: "teacher-auth-id" }),
     );
 
+    expect(plan.table).toBe("quiz_sessions");
     expect(plan.filters[0]).toEqual({
       column: "teacher_id",
       operator: "eq",
@@ -30,7 +30,7 @@ describe("buildSearchPlan", () => {
 
   it("rejects a missing teacher scope", () => {
     expect(() =>
-      buildSearchPlan(defaultSearchQuery("teacher", "students"), {
+      buildSearchPlan(defaultSearchQuery("teacher", "quizzes"), {
         role: "teacher",
         userId: "teacher-auth-id",
         teacherId: null,
@@ -51,8 +51,9 @@ describe("buildSearchPlan", () => {
       createSearchScope({ role: "teacher", userId: "teacher-auth-id" }),
     );
 
+    expect(plan.table).toBe("quiz_results");
     expect(plan.filters[0]).toEqual({
-      column: "student_teacher_id",
+      column: "teacher_id",
       operator: "eq",
       value: "teacher-auth-id",
     });
@@ -63,14 +64,14 @@ describe("buildSearchPlan", () => {
     });
   });
 
-  it("rejects teacher use of the admin-only account status filter", () => {
+  it("rejects teacher access to the admin-only teacher search", () => {
     expect(() =>
       parseSearchQuery(
-        new URLSearchParams("entity=students&accountStatus=inactive"),
+        new URLSearchParams("entity=teachers&accountStatus=inactive"),
         "teacher",
       ),
     ).toThrowError(
-      expect.objectContaining({ code: "FORBIDDEN_FILTER" }),
+      expect.objectContaining({ code: "FORBIDDEN_ENTITY" }),
     );
   });
 
@@ -107,7 +108,7 @@ describe("buildSearchPlan", () => {
   it("does not allow passwords to be requested as a searchable field", () => {
     expect(() =>
       parseSearchQuery(
-        new URLSearchParams("entity=students&password=secret"),
+        new URLSearchParams("entity=quizzes&password=secret"),
         "admin",
       ),
     ).toThrowError(
