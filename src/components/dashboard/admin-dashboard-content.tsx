@@ -88,7 +88,7 @@ export default function AdminDashboardContent({
     setLogoutError("");
 
     try {
-      await logoutAndRedirect(router, "/admin-login");
+      await logoutAndRedirect(router, "/");
     } catch (error) {
       setLogoutError(
         error instanceof Error ? error.message : "Unable to log out.",

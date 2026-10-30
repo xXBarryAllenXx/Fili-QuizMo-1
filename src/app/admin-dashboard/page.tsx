@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import AdminDashboardContent from "@/components/dashboard/admin-dashboard-content";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { getAdminDashboardData } from "@/lib/dashboard/data";
@@ -16,6 +17,8 @@ export default function AdminDashboardPage() {
 }
 
 async function ProtectedAdminDashboard() {
+  await connection();
+
   const supabase = await createClient();
   const {
     data: { user },

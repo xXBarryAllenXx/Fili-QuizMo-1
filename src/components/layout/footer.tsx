@@ -23,7 +23,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
           <div className="max-w-sm">
-            <Link href="/" className="inline-flex items-center gap-2.5">
+            <div className="inline-flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/assets/Fili-QuizMo Logo.png"
@@ -33,7 +33,7 @@ export function Footer() {
               <span className="text-xl font-bold tracking-tight">
                 Fili-QuizMo
               </span>
-            </Link>
+            </div>
             <p className="mt-4 text-sm leading-6 text-primary-foreground/75">
               An interactive quiz platform built for learners, and teachers.
             </p>

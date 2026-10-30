@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import TeacherDashboardContent from "@/components/dashboard/teacher-dashboard-content";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { getTeacherDashboardData } from "@/lib/dashboard/data";
@@ -18,6 +19,8 @@ export default function TeacherDashboardPage() {
 }
 
 async function ProtectedTeacherDashboard() {
+  await connection();
+
   const supabase = await createClient();
   const {
     data: { user },

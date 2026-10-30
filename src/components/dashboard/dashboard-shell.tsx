@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { useClickOutside } from "@/lib/hooks/use-click-outside";
@@ -133,10 +132,7 @@ export function DashboardShell({
         }`}
       >
         <div className="flex h-16 items-center border-b border-white/10 px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 text-lg font-bold tracking-tight"
-          >
+          <div className="flex items-center gap-2.5 text-lg font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/assets/Fili-QuizMo Logo.png"
@@ -144,7 +140,7 @@ export function DashboardShell({
               className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20"
             />
             Fili-QuizMo
-          </Link>
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1 p-4">

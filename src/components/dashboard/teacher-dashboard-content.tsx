@@ -73,7 +73,7 @@ export default function TeacherDashboardContent({
     setLogoutError("");
 
     try {
-      await logoutAndRedirect(router, "/teacher-login");
+      await logoutAndRedirect(router, "/");
     } catch (error) {
       setLogoutError(
         error instanceof Error ? error.message : "Unable to log out.",
