@@ -1,8 +1,4 @@
-import {
-  ACCOUNT_STATUS_OPTIONS,
-  getEntityConfig,
-  getStatusLabel,
-} from "./config";
+import { ACCOUNT_STATUS_OPTIONS } from "./config";
 import type { SearchFilterKey, SearchQuery } from "./types";
 
 export type ActiveFilterChip = {
@@ -14,19 +10,10 @@ export type ActiveFilterChip = {
 export function getActiveFilterChips(
   query: SearchQuery,
 ): ActiveFilterChip[] {
-  const config = getEntityConfig(query.entity);
   const chips: ActiveFilterChip[] = [];
 
   if (query.q) {
     chips.push({ key: "q", label: "Search", value: query.q });
-  }
-
-  if (query.status) {
-    chips.push({
-      key: "status",
-      label: config.statusLabel,
-      value: getStatusLabel(query.entity, query.status),
-    });
   }
 
   if (query.accountStatus) {

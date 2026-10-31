@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import { buildPostgrestOrFilter } from "./query-builder";
 import { SearchError } from "./errors";
 import type {
@@ -37,9 +39,7 @@ type SearchBuilder = {
   ): SearchBuilder & PromiseLike<SearchQueryResult>;
 };
 
-export type SupabaseSearchClient = {
-  from(view: string): unknown;
-};
+export type SupabaseSearchClient = SupabaseClient<Database>;
 
 export function mapSearchDbError(error: SearchDbError): SearchError {
   if (error.code === "PGRST205" || error.code === "42P01") {
@@ -77,7 +77,7 @@ export class SupabaseSearchRepository implements SearchRepository {
     plan: SearchPlan,
   ): Promise<{ rows: SearchRow[]; total: number }> {
     let query = (
-      this.client.from(plan.table) as SearchBuilder
+      this.client.from(plan.table) as unknown as SearchBuilder
     ).select(plan.select.join(","), { count: "exact" });
 
     for (const filter of plan.filters) {

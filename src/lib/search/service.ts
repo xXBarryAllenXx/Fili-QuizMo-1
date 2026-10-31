@@ -14,7 +14,6 @@ import type {
   SearchResponse,
   SearchRow,
   SearchScope,
-  StudentSearchItem,
   TeacherSearchItem,
 } from "./types";
 
@@ -30,6 +29,49 @@ function textValue(row: SearchRow, key: string): string {
   }
 
   return String(value);
+}
+
+function nestedValue(
+  row: SearchRow,
+  relation: string,
+  key: string,
+): unknown {
+  const value = row[relation];
+
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === "object"
+      ? (first as Record<string, unknown>)[key]
+      : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    return (value as Record<string, unknown>)[key];
+  }
+
+  return undefined;
+}
+
+function nestedTextValue(
+  row: SearchRow,
+  relation: string,
+  key: string,
+): string {
+  const value = nestedValue(row, relation, key);
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value);
+}
+
+function nestedCount(row: SearchRow, relation: string): number | null {
+  return toNumber(nestedValue(row, relation, "count"));
 }
 
 function toNumber(value: unknown): number | null {
@@ -66,23 +108,6 @@ export function mapSearchItem(
   entity: SearchEntity,
   row: SearchRow,
 ): SearchItem {
-  if (entity === "students") {
-    const item: StudentSearchItem = {
-      entity: "students",
-      id: textValue(row, "student_id"),
-      name: textValue(row, "name"),
-      schoolId: textValue(row, "school_id"),
-      email: textValue(row, "email"),
-      enrollmentStatus: textValue(row, "enrollment_status"),
-      accountStatus: textValue(row, "account_status"),
-      teacherId: textValue(row, "teacher_id"),
-      teacherUsername: textValue(row, "teacher_username"),
-      createdAt: textValue(row, "created_at"),
-    };
-
-    return item;
-  }
-
   if (entity === "quizzes") {
     const item: QuizSearchItem = {
       entity: "quizzes",
@@ -92,7 +117,7 @@ export function mapSearchItem(
       shareCode: textValue(row, "share_code"),
       questionCount: numberValue(row, "requested_question_count"),
       teacherId: textValue(row, "teacher_id"),
-      teacherUsername: textValue(row, "teacher_username"),
+      teacherUsername: nestedTextValue(row, "teachers", "username"),
       createdAt: textValue(row, "created_at"),
     };
 
@@ -126,12 +151,11 @@ export function mapSearchItem(
   const item: TeacherSearchItem = {
     entity: "teachers",
     id: textValue(row, "id"),
-    username: usernameFromEmail(email),
+    username:
+      textValue(row, "username") || usernameFromEmail(email),
     email,
     accountStatus: textValue(row, "status"),
-    // teacher_accounts has no foreign key to quiz_sessions, so a per-teacher
-    // quiz count cannot be derived from this row.
-    quizCount: null,
+    quizCount: nestedCount(row, "quizzes"),
     createdAt: textValue(row, "created_at"),
   };
 
@@ -178,7 +202,6 @@ export async function executeSearch(input: {
       dataSource: input.repository.dataSource,
       filters: {
         q: input.query.q,
-        status: input.query.status,
         accountStatus: input.query.accountStatus,
         teacher: input.query.teacher,
         quiz: input.query.quiz,

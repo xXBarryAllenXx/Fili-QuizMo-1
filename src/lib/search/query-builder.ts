@@ -19,6 +19,16 @@ export function containsPattern(value: string): string {
   return `%${escapeLikePattern(value)}%`;
 }
 
+/**
+ * PostgREST uses commas and parentheses as structural characters inside
+ * `or=(...)` expressions. Values are quoted before being sent, but removing
+ * these characters from free-text input is a cheap second layer of defence
+ * against malformed filters.
+ */
+export function sanitizeOrSearchTerm(value: string): string {
+  return value.replace(/[(),]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export function quotePostgrestValue(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
@@ -42,7 +52,16 @@ export function buildSearchPlan(
 ): SearchPlan {
   assertEntityAllowed(scope.role, query.entity);
 
-  if (scope.role === "teacher" && !scope.teacherId) {
+  const config = getEntityConfig(query.entity);
+  const scopeValue =
+    config.scopeId === "teacher"
+      ? scope.teacherNumericId
+      : scope.teacherId;
+
+  if (
+    scope.role === "teacher" &&
+    (scopeValue === null || scopeValue === undefined || scopeValue === "")
+  ) {
     throw new SearchError(
       403,
       "SCOPE_REQUIRED",
@@ -50,38 +69,15 @@ export function buildSearchPlan(
     );
   }
 
-  const config = getEntityConfig(query.entity);
-
-  if (!config.table) {
-    throw new SearchError(
-      503,
-      "SEARCH_NOT_AVAILABLE",
-      `The ${config.label.toLowerCase()} search is not available in this deployment.`,
-      { entity: query.entity },
-    );
-  }
-
   const filters: SearchPlanFilter[] = [];
 
   // The permission scope is always the first filter. User-supplied filters
   // can only narrow this set; they can never replace or widen it.
-  if (scope.role === "teacher" && scope.teacherId) {
+  if (scope.role === "teacher" && scopeValue !== null && scopeValue !== undefined) {
     filters.push({
       column: config.scopeColumn,
       operator: "eq",
-      value: scope.teacherId,
-    });
-  }
-
-  if (
-    query.status &&
-    config.statusColumn &&
-    config.filters.includes("status")
-  ) {
-    filters.push({
-      column: config.statusColumn,
-      operator: "eq",
-      value: query.status,
+      value: String(scopeValue),
     });
   }
 
@@ -99,7 +95,10 @@ export function buildSearchPlan(
 
   if (query.teacher && config.filters.includes("teacher")) {
     filters.push({
-      column: "teacher_username",
+      column:
+        config.table === "quizzes"
+          ? "teachers.username"
+          : "teacher_username",
       operator: "ilike",
       value: containsPattern(query.teacher),
     });
@@ -138,16 +137,21 @@ export function buildSearchPlan(
   }
 
   const offset = (query.page - 1) * query.pageSize;
+  const searchTerm = sanitizeOrSearchTerm(query.q);
 
   return {
     entity: query.entity,
     table: config.table,
-    select: [...config.select],
+    select: config.select.map((column) =>
+      query.teacher && column === "teachers(username)"
+        ? "teachers!inner(username)"
+        : column,
+    ),
     filters,
-    search: query.q
+    search: searchTerm
       ? {
           columns: [...config.searchColumns],
-          pattern: containsPattern(query.q),
+          pattern: containsPattern(searchTerm),
           rawTerm: query.q,
         }
       : null,
@@ -179,12 +183,18 @@ export function hasTeacherScope(
 
   const firstFilter = plan.filters[0];
   const config = getEntityConfig(plan.entity);
+  const scopeValue =
+    config.scopeId === "teacher"
+      ? scope.teacherNumericId
+      : scope.teacherId;
 
   return Boolean(
-    scope.teacherId &&
+    scopeValue !== null &&
+      scopeValue !== undefined &&
+      scopeValue !== "" &&
       firstFilter &&
       firstFilter.column === config.scopeColumn &&
       firstFilter.operator === "eq" &&
-      firstFilter.value === scope.teacherId,
+      firstFilter.value === String(scopeValue),
   );
 }

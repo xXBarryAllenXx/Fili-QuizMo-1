@@ -1,5 +1,4 @@
 export const SEARCH_ENTITIES = [
-  "students",
   "quizzes",
   "participants",
   "teachers",
@@ -20,7 +19,6 @@ export type SearchSortDirection = "asc" | "desc";
 export type SearchDataSource = "supabase" | "mock";
 
 export type SearchFilterKey =
-  | "status"
   | "accountStatus"
   | "teacher"
   | "quiz"
@@ -31,7 +29,6 @@ export type SearchFilterKey =
 export type SearchQuery = {
   entity: SearchEntity;
   q: string;
-  status: string | null;
   accountStatus: "active" | "inactive" | null;
   teacher: string;
   quiz: string;
@@ -44,10 +41,15 @@ export type SearchQuery = {
   pageSize: number;
 };
 
+export type SearchTable = "quizzes" | "quiz_results" | "teachers";
+
 export type SearchScope = {
   role: SearchRole;
   userId: string;
+  /** Auth UUID used by quiz_results.teacher_id. */
   teacherId: string | null;
+  /** Numeric teachers.id used by quizzes.teacher_id. */
+  teacherNumericId: number | null;
   teacherLabel: string | null;
 };
 
@@ -61,7 +63,7 @@ export type SearchPlanFilter = {
 
 export type SearchPlan = {
   entity: SearchEntity;
-  table: string;
+  table: SearchTable;
   select: string[];
   filters: SearchPlanFilter[];
   search: {
@@ -87,19 +89,6 @@ export type SearchRepository = {
   search(
     plan: SearchPlan,
   ): Promise<{ rows: SearchRow[]; total: number }>;
-};
-
-export type StudentSearchItem = {
-  entity: "students";
-  id: string;
-  name: string;
-  schoolId: string;
-  email: string;
-  enrollmentStatus: string;
-  accountStatus: string;
-  teacherId: string;
-  teacherUsername: string;
-  createdAt: string;
 };
 
 export type QuizSearchItem = {
@@ -139,14 +128,12 @@ export type TeacherSearchItem = {
 };
 
 export type SearchItem =
-  | StudentSearchItem
   | QuizSearchItem
   | ParticipantSearchItem
   | TeacherSearchItem;
 
 export type SearchAppliedFilters = {
   q: string;
-  status: string | null;
   accountStatus: "active" | "inactive" | null;
   teacher: string;
   quiz: string;

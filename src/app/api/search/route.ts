@@ -49,6 +49,26 @@ export async function GET(request: Request): Promise<Response> {
             : null,
         };
       },
+      async getTeacherAccount(userId) {
+        const { data, error } = await supabase
+          .from("teachers")
+          .select("id, username, status")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        return {
+          data: data
+            ? {
+                id: Number(data.id),
+                username: data.username,
+                status: data.status,
+              }
+            : null,
+          error: error
+            ? { code: error.code, message: error.message }
+            : null,
+        };
+      },
     };
     const context = await resolveSearchContext(authClient);
     const query = parseSearchQuery(params, context.role);

@@ -70,6 +70,7 @@ export function assertFilterAllowed(
 export function createSearchScope(input: {
   role: SearchRole;
   userId: string;
+  teacherNumericId?: number | null;
   displayName?: string | null;
 }): SearchScope {
   const teacherLabel = input.displayName?.trim() || null;
@@ -79,6 +80,7 @@ export function createSearchScope(input: {
       role: "teacher",
       userId: input.userId,
       teacherId: input.userId,
+      teacherNumericId: input.teacherNumericId ?? null,
       teacherLabel,
     };
   }
@@ -87,6 +89,7 @@ export function createSearchScope(input: {
     role: "admin",
     userId: input.userId,
     teacherId: null,
+    teacherNumericId: null,
     teacherLabel,
   };
 }

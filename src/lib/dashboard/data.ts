@@ -98,10 +98,10 @@ export async function getAdminDashboardData(
 ): Promise<AdminDashboardData> {
   const [quizzes, readyQuizzes, results] = await Promise.all([
     client
-      .from("quiz_sessions")
+      .from("quizzes")
       .select("session_id", { count: "exact", head: true }),
     client
-      .from("quiz_sessions")
+      .from("quizzes")
       .select("session_id", { count: "exact", head: true })
       .eq("status", "ready"),
     client
@@ -147,19 +147,43 @@ export async function getTeacherDashboardData(
   const errors: string[] = [];
   const email = user.email?.trim() ?? "";
 
-  const { data: quizRows, error: quizError } = await client
-    .from("quiz_sessions")
-    .select(
-      "session_id, title, status, share_code, created_at, teacher_username",
-    )
-    .eq("teacher_id", user.id)
-    .order("created_at", { ascending: false });
+  const { data: teacherAccount, error: teacherError } = await client
+    .from("teachers")
+    .select("id, username")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (quizError) {
-    errors.push(errorMessage("Your quizzes", quizError.message));
+  if (teacherError) {
+    errors.push(errorMessage("Your teacher account", teacherError.message));
   }
 
-  const sessions = quizRows ?? [];
+  const teacherNumericId = teacherAccount?.id ?? null;
+  let quizRows: Array<{
+    session_id: string;
+    title: string | null;
+    status: string;
+    share_code: string | null;
+    requested_question_count: number | null;
+    created_at: string;
+  }> = [];
+
+  if (teacherNumericId !== null) {
+    const { data, error } = await client
+      .from("quizzes")
+      .select(
+        "session_id, title, status, share_code, requested_question_count, created_at",
+      )
+      .eq("teacher_id", teacherNumericId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      errors.push(errorMessage("Your quizzes", error.message));
+    } else {
+      quizRows = data ?? [];
+    }
+  }
+
+  const sessions = quizRows;
   const questionCounts = new Map<string, number>();
 
   if (sessions.length > 0) {
@@ -202,7 +226,10 @@ export async function getTeacherDashboardData(
     title: session.title?.trim() || "Untitled quiz",
     status: session.status,
     shareCode: session.share_code,
-    questionCount: questionCounts.get(session.session_id) ?? 0,
+    questionCount:
+      questionCounts.get(session.session_id) ??
+      session.requested_question_count ??
+      0,
     createdAt: session.created_at,
   }));
 
@@ -227,8 +254,8 @@ export async function getTeacherDashboardData(
   }));
 
   const username =
-    sessions.find((session) => session.teacher_username)?.teacher_username ??
-    resultRows?.find((result) => result.teacher_username)?.teacher_username ??
+    teacherAccount?.username?.trim() ||
+    resultRows?.find((result) => result.teacher_username)?.teacher_username ||
     usernameFromEmail(email);
 
   const completedResults = results.filter(
@@ -243,6 +270,8 @@ export async function getTeacherDashboardData(
       : 0;
 
   return {
+    teacherId: user.id,
+    teacherNumericId,
     username,
     email,
     stats: {

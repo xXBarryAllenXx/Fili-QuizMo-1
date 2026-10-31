@@ -32,6 +32,7 @@ export function createSearchRepository(input: {
       createDemoRows({
         role: input.scope.role,
         teacherId: input.scope.teacherId,
+        teacherNumericId: input.scope.teacherNumericId,
         teacherUsername: input.scope.teacherLabel,
       }),
     );

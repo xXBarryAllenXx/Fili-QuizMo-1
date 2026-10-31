@@ -47,13 +47,13 @@ export function AdminLoginForm() {
         return;
       }
 
-      const { data: admin_accountsRow, error: admin_accountsError } = await supabase
-        .from("admin_accounts")
+      const { data: adminAccount, error: adminAccountError } = await supabase
+        .from("admins")
         .select("user_id")
         .eq("user_id", userData.user.id)
         .maybeSingle();
 
-      if (admin_accountsError || !admin_accountsRow) {
+      if (adminAccountError || !adminAccount) {
         const { error: signOutError } = await supabase.auth.signOut();
         setErrorMessage(
           signOutError

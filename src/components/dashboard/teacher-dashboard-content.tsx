@@ -15,6 +15,7 @@ import { PieChart } from "@/components/dashboard/pie-chart";
 import { Button } from "@/components/ui/button";
 import { SearchFilter } from "@/components/dashboard/search-filter";
 import { FormField } from "@/components/ui/form-field";
+import { useDashboardRealtime } from "@/lib/dashboard/use-dashboard-realtime";
 import { defaultSearchQuery } from "@/lib/search/url-state";
 import { logoutAndRedirect } from "@/lib/session/session-hygiene";
 import type { TeacherDashboardData } from "@/lib/dashboard/types";
@@ -44,6 +45,12 @@ export default function TeacherDashboardContent({
   const [logoutError, setLogoutError] = useState("");
   const router = useRouter();
   const pathname = usePathname();
+
+  useDashboardRealtime({
+    role: "teacher",
+    teacherNumericId: data.teacherNumericId,
+    teacherAuthId: data.teacherId,
+  });
 
   useEffect(() => {
     function clearManualSection() {

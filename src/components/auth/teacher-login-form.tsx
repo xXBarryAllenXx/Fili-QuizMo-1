@@ -39,13 +39,13 @@ export function TeacherLoginForm() {
         return;
       }
 
-      const { data: teacher_accountsRow, error: teacher_accountsError } = await supabase
-        .from("teacher_accounts")
-        .select("school_id")
+      const { data: teacherAccount, error: teacherAccountError } = await supabase
+        .from("teachers")
+        .select("id")
         .eq("user_id", userData.user.id)
         .maybeSingle();
 
-      if (teacher_accountsError || !teacher_accountsRow) {
+      if (teacherAccountError || !teacherAccount) {
         const { error: signOutError } = await supabase.auth.signOut();
         setErrorMessage(
           signOutError

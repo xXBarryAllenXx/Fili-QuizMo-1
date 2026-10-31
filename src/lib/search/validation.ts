@@ -5,7 +5,6 @@ import {
   MAX_PAGE_SIZE,
   MAX_SEARCH_LENGTH,
   ROLE_CONFIG,
-  getEntityConfig,
 } from "./config";
 import { SearchError } from "./errors";
 import { assertEntityAllowed, assertFilterAllowed } from "./scope";
@@ -157,35 +156,12 @@ export function parseSearchQuery(
     );
   }
 
-  const config = getEntityConfig(entity);
-
   const q = cleanText(
     params.get("q") ?? "",
     "q",
     "Search text",
     MAX_SEARCH_LENGTH,
   );
-
-  let status: string | null = null;
-  if (params.has("status")) {
-    assertFilterAllowed(role, entity, "status");
-    const rawStatus = params.get("status")?.trim().toLowerCase() ?? "";
-
-    if (rawStatus) {
-      if (
-        !config.statusOptions.some((option) => option.value === rawStatus)
-      ) {
-        throw new SearchError(
-          400,
-          "INVALID_FILTER",
-          `The status "${rawStatus}" is not valid for ${config.pluralLabel.toLowerCase()}.`,
-          { field: "status", entity },
-        );
-      }
-
-      status = rawStatus;
-    }
-  }
 
   let accountStatus: "active" | "inactive" | null = null;
   if (params.has("accountStatus")) {
@@ -307,7 +283,6 @@ export function parseSearchQuery(
   return {
     entity,
     q,
-    status,
     accountStatus,
     teacher,
     quiz,

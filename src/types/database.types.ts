@@ -14,21 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_accounts: {
+      admins: {
         Row: {
           admin_id: number
           created_at: string
-          user_id: string | null
+          email: string | null
+          user_id: string
         }
         Insert: {
-          admin_id?: number
+          admin_id?: never
           created_at?: string
-          user_id?: string | null
+          email?: string | null
+          user_id: string
         }
         Update: {
-          admin_id?: number
+          admin_id?: never
           created_at?: string
-          user_id?: string | null
+          email?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -226,27 +229,92 @@ export type Database = {
         }
         Relationships: []
       }
-      teacher_accounts: {
+      quizzes: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          game_mode: string
+          is_time_attack: boolean
+          max_attempts: number | null
+          requested_question_count: number | null
+          session_id: string
+          share_code: string | null
+          status: string
+          teacher_id: number | null
+          time_attack_seconds: number | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          game_mode?: string
+          is_time_attack?: boolean
+          max_attempts?: number | null
+          requested_question_count?: number | null
+          session_id: string
+          share_code?: string | null
+          status?: string
+          teacher_id?: number | null
+          time_attack_seconds?: number | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          game_mode?: string
+          is_time_attack?: boolean
+          max_attempts?: number | null
+          requested_question_count?: number | null
+          session_id?: string
+          share_code?: string | null
+          status?: string
+          teacher_id?: number | null
+          time_attack_seconds?: number | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers: {
         Row: {
           created_at: string
           email: string | null
           id: number
-          user_id: string | null
+          school_id: string | null
           status: string
+          updated_at: string
+          user_id: string
+          username: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
-          id?: number
-          user_id?: string | null
-          status: string
+          id?: never
+          school_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
-          id?: number
-          user_id?: string | null
+          id?: never
+          school_id?: string | null
           status?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -287,6 +355,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_teacher_id: { Args: never; Returns: number }
       finalize_quiz_result: {
         Args: { p_attempt_id: string }
         Returns: undefined

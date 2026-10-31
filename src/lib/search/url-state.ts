@@ -9,7 +9,6 @@ export function defaultSearchQuery(
   return {
     entity,
     q: "",
-    status: null,
     accountStatus: null,
     teacher: "",
     quiz: "",
@@ -29,9 +28,6 @@ export function serializeSearchState(query: SearchQuery): string {
   params.set("entity", query.entity);
   if (query.q) {
     params.set("q", query.q);
-  }
-  if (query.status) {
-    params.set("status", query.status);
   }
   if (query.accountStatus) {
     params.set("accountStatus", query.accountStatus);

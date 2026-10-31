@@ -57,6 +57,8 @@ export type TeacherDashboardStats = {
 };
 
 export type TeacherDashboardData = {
+  teacherId: string;
+  teacherNumericId: number | null;
   username: string;
   email: string;
   stats: TeacherDashboardStats;

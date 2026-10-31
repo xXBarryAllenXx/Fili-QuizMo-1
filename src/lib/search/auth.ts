@@ -13,6 +13,12 @@ type AuthUser = {
   app_metadata?: Record<string, unknown>;
 };
 
+type TeacherAccount = {
+  id: number;
+  username: string | null;
+  status: string;
+};
+
 export type SearchAuthClient = {
   auth: {
     getUser(): Promise<{
@@ -27,10 +33,14 @@ export type SearchAuthClient = {
     };
   };
   hasMembership(input: {
-    table: "admin_accounts";
+    table: "admins";
     column: "user_id";
     userId: string;
   }): Promise<{ exists: boolean; error: AuthError | null }>;
+  getTeacherAccount(userId: string): Promise<{
+    data: TeacherAccount | null;
+    error: AuthError | null;
+  }>;
 };
 
 async function readMembership(
@@ -39,7 +49,7 @@ async function readMembership(
 ): Promise<{ exists: boolean; error: AuthError | null }> {
   try {
     return await client.hasMembership({
-      table: "admin_accounts",
+      table: "admins",
       column: "user_id",
       userId,
     });
@@ -51,6 +61,28 @@ async function readMembership(
           error instanceof Error
             ? error.message
             : "Unable to verify account access.",
+      },
+    };
+  }
+}
+
+async function readTeacherAccount(
+  client: SearchAuthClient,
+  userId: string,
+): Promise<{
+  data: TeacherAccount | null;
+  error: AuthError | null;
+}> {
+  try {
+    return await client.getTeacherAccount(userId);
+  } catch (error) {
+    return {
+      data: null,
+      error: {
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to verify teacher access.",
       },
     };
   }
@@ -141,14 +173,29 @@ export async function resolveSearchContext(
   }
 
   if (metadataRole === "teacher") {
-    // app_metadata is trusted (only the service role can write it) and
-    // teacher_accounts has no user_id column to check. Teacher rows are
-    // scoped to this auth user id by teacher_id on quiz_sessions and
-    // quiz_results, so no membership lookup is possible or necessary here.
+    const teacher = await readTeacherAccount(client, user.id);
+
+    if (teacher.error) {
+      throw new SearchError(
+        503,
+        "TEACHER_LOOKUP_FAILED",
+        "Your teacher account could not be verified.",
+      );
+    }
+
+    if (!teacher.data) {
+      throw new SearchError(
+        403,
+        "FORBIDDEN_ROLE",
+        "This account is not authorized for teacher search.",
+      );
+    }
+
     return createSearchScope({
       role: "teacher",
       userId: user.id,
-      displayName,
+      teacherNumericId: teacher.data.id,
+      displayName: teacher.data.username ?? displayName,
     });
   }
 

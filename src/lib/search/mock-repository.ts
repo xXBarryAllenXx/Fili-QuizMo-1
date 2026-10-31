@@ -29,11 +29,33 @@ function likeRegExp(pattern: string): RegExp {
   return new RegExp(`${source}$`, "i");
 }
 
+function columnValue(row: SearchRow, column: string): unknown {
+  if (!column.includes(".")) {
+    return row[column];
+  }
+
+  let value: unknown = row;
+
+  for (const part of column.split(".")) {
+    if (Array.isArray(value)) {
+      value = value[0];
+    }
+
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+
+    value = (value as Record<string, unknown>)[part];
+  }
+
+  return value;
+}
+
 function matchesFilter(
   row: SearchRow,
   filter: SearchPlan["filters"][number],
 ): boolean {
-  const rawValue = row[filter.column];
+  const rawValue = columnValue(row, filter.column);
   const value = rawValue === null || rawValue === undefined
     ? ""
     : String(rawValue);
@@ -87,15 +109,15 @@ export function applyPlanToRows(
     }
 
     return plan.search.columns.some((column) =>
-      searchRegex.test(String(row[column] ?? "")),
+      searchRegex.test(String(columnValue(row, column) ?? "")),
     );
   });
 
   const sorted = filtered.slice().sort((left, right) => {
     for (const order of plan.order) {
       const comparison = compareValues(
-        left[order.column],
-        right[order.column],
+        columnValue(left, order.column),
+        columnValue(right, order.column),
       );
 
       if (comparison !== 0) {

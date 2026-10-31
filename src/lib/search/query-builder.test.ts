@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSearchPlan } from "./query-builder";
+import { buildSearchPlan, sanitizeOrSearchTerm } from "./query-builder";
 import { createSearchScope } from "./scope";
 import { defaultSearchQuery } from "./url-state";
 import { parseSearchQuery } from "./validation";
@@ -12,14 +12,18 @@ describe("buildSearchPlan", () => {
 
     const plan = buildSearchPlan(
       query,
-      createSearchScope({ role: "teacher", userId: "teacher-auth-id" }),
+      createSearchScope({
+        role: "teacher",
+        userId: "teacher-auth-id",
+        teacherNumericId: 42,
+      }),
     );
 
-    expect(plan.table).toBe("quiz_sessions");
+    expect(plan.table).toBe("quizzes");
     expect(plan.filters[0]).toEqual({
       column: "teacher_id",
       operator: "eq",
-      value: "teacher-auth-id",
+      value: "42",
     });
     expect(plan.range).toEqual({ from: 20, to: 29 });
     expect(plan.order[0]).toEqual({
@@ -34,6 +38,7 @@ describe("buildSearchPlan", () => {
         role: "teacher",
         userId: "teacher-auth-id",
         teacherId: null,
+        teacherNumericId: null,
         teacherLabel: null,
       }),
     ).toThrowError(
@@ -48,7 +53,11 @@ describe("buildSearchPlan", () => {
     );
     const plan = buildSearchPlan(
       query,
-      createSearchScope({ role: "teacher", userId: "teacher-auth-id" }),
+      createSearchScope({
+        role: "teacher",
+        userId: "teacher-auth-id",
+        teacherNumericId: 42,
+      }),
     );
 
     expect(plan.table).toBe("quiz_results");
@@ -85,6 +94,39 @@ describe("buildSearchPlan", () => {
     );
 
     expect(plan.search?.pattern).toBe("%100\\%\\_safe%");
+  });
+
+  it("strips PostgREST structural characters from search input", () => {
+    expect(sanitizeOrSearchTerm("math, (quiz)")).toBe("math quiz");
+
+    const query = defaultSearchQuery("admin", "quizzes");
+    query.q = "math, (quiz)";
+
+    const plan = buildSearchPlan(
+      query,
+      createSearchScope({ role: "admin", userId: "admin-id" }),
+    );
+
+    expect(plan.search?.pattern).toBe("%math quiz%");
+    expect(plan.search?.rawTerm).toBe("math, (quiz)");
+  });
+
+  it("filters quizzes through the embedded teacher relation", () => {
+    const query = parseSearchQuery(
+      new URLSearchParams("entity=quizzes&teacher=msantos"),
+      "admin",
+    );
+    const plan = buildSearchPlan(
+      query,
+      createSearchScope({ role: "admin", userId: "admin-id" }),
+    );
+
+    expect(plan.select).toContain("teachers!inner(username)");
+    expect(plan.filters).toContainEqual({
+      column: "teachers.username",
+      operator: "ilike",
+      value: "%msantos%",
+    });
   });
 
   it("caps page size and validates the requested sort field", () => {

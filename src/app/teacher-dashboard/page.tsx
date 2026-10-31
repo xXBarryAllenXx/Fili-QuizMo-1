@@ -49,8 +49,8 @@ async function ProtectedTeacherDashboard() {
 
   if (!metadataRole) {
     const { data: teacherAccount, error: teacherError } = await supabase
-      .from("teacher_accounts")
-      .select("school_id")
+      .from("teachers")
+      .select("id")
       .eq("user_id", user.id)
       .maybeSingle();
 

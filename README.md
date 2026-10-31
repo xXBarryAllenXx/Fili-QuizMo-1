@@ -1,6 +1,6 @@
 # Fili-QuizMo
 
-Fili-QuizMo is a responsive quiz platform website built with Next.js, React, and Tailwind CSS. Admin and teacher authentication use separate Supabase roles; admin access also requires TOTP multi-factor authentication. Dashboard summary cards and charts remain demo data; the search lists use demo rows in development and the Supabase search views in production.
+Fili-QuizMo is a responsive quiz platform website built with Next.js, React, and Tailwind CSS. Admin and teacher authentication use separate Supabase roles; admin access also requires TOTP multi-factor authentication. Dashboard summary cards and charts remain demo data; dashboard lists and search read Supabase tables by default, with deterministic mock rows available only when `SEARCH_DATA_SOURCE=mock`.
 
 ## Getting Started
 
@@ -41,7 +41,7 @@ The project is built with Webpack because the Turbopack native bindings are unav
 
    ```dotenv
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
    ```
 
 2. Create admin and teacher users through Supabase Auth or another trusted provisioning process. Set each user's trusted `app_metadata.role` to exactly `admin` or `teacher`, respectively. The admin login rejects teacher accounts, and the teacher login rejects admin accounts. Role values in user-editable `user_metadata` are not used for authorization.
@@ -59,10 +59,10 @@ The reusable dashboard search UI calls `GET /api/search`. The server derives the
 Example:
 
 ```http
-GET /api/search?entity=participants&q=maria&status=completed&session=SESS-1042&from=2026-09-01&to=2026-10-01&sort=date&dir=desc&page=1&pageSize=20
+GET /api/search?entity=participants&q=maria&session=SESS-1042&from=2026-09-01&to=2026-10-01&sort=date&dir=desc&page=1&pageSize=20
 ```
 
-Supported query fields are `entity` (`students`, `quizzes`, `participants`, or admin-only `teachers`), `q`, `status`, teacher username, admin-only `accountStatus`, participant `quiz` and `session`, `from`, `to`, `sort` (`name`, `date`, `status`), `dir`, `page`, and `pageSize` (capped at 100). The response contains `items`, server-side `pagination`, and role/scope metadata. Errors use `{ "error": { "code": "...", "message": "..." } }`. Search/filter/sort/page state is reflected in the dashboard URL. Passwords are never searched or returned.
+Supported query fields are `entity` (`quizzes`, `participants`, or admin-only `teachers`), `q`, teacher username, admin-only `accountStatus`, participant `quiz` and `session`, `from`, `to`, `sort` (`name`, `date`, `status`), `dir`, `page`, and `pageSize` (capped at 100). The response contains `items`, server-side `pagination`, and role/scope metadata. Errors use `{ "error": { "code": "...", "message": "..." } }`. Search/filter/sort/page state is reflected in the dashboard URL. Passwords are never searched or returned.
 
 Example success response:
 
@@ -75,13 +75,10 @@ Example success response:
       "username": "maria.santos",
       "status": "completed",
       "score": 92,
-      "quizId": "quiz-id",
       "quizTitle": "Science Fundamentals",
       "sessionId": "session-id",
       "sessionCode": "SESS-SCI-2081",
-      "studentSchoolId": "LES-2026-001",
-      "studentEmail": "maria@example.test",
-      "teacherId": "teacher-id",
+      "teacherId": "teacher-uuid",
       "teacherUsername": "msantos",
       "joinedAt": "2026-09-10T09:00:00.000Z"
     }
@@ -94,7 +91,6 @@ Example success response:
     "dataSource": "supabase",
     "filters": {
       "q": "maria",
-      "status": "completed",
       "accountStatus": null,
       "teacher": "",
       "quiz": "",
@@ -115,14 +111,25 @@ Example success response:
 }
 ```
 
-For local development, the endpoint defaults to deterministic mock data; use `SEARCH_DATA_SOURCE=mock` or `SEARCH_DATA_SOURCE=supabase` to choose explicitly. Production defaults to Supabase. Apply `supabase/migrations/202610290001_search_views_and_indexes.sql` before enabling the Supabase source. That migration assumes `public.student`, `public.teacher`, `public.quiz`, `public.quiz_session`, and `public.participant` with the columns used by the search views. Adapt those view definitions and indexes if the deployed schema differs. The views use `security_invoker`; existing table grants and RLS policies must allow teachers only their own rows and admins only their permitted rows (including the existing AAL2 requirement). The API also applies a trusted teacher scope before all user filters; participant rows are scoped by the linked student's `teacher_id`, so unlinked/guest participants and another teacher's students are not exposed to teachers.
+Set `SEARCH_DATA_SOURCE=mock` to use deterministic mock rows; the default is `supabase`. Apply `supabase/migrations/202610290001_search_views_and_indexes.sql` to add indexes for the current `quizzes`, `quiz_results`, `teachers`, and `quiz_questions` tables. The migration does not create views or modify RLS policies, grants, publications, or replica identity. Existing table grants and RLS policies must allow teachers only their own rows and admins only their permitted rows (including the existing AAL2 requirement). The API also applies a trusted teacher scope before all user filters: `quizzes.teacher_id` is matched against the numeric `teachers.id` resolved from `teachers.user_id`, while `quiz_results.teacher_id` is matched against the authenticated user's UUID.
 
-The migration adds B-tree indexes for teacher/status/date/join columns and `pg_trgm` GIN indexes for substring-matched text columns. Trigram indexes support the `%term%` `ILIKE` searches without requiring a separate full-text search language configuration. Password columns are intentionally absent from views and indexes.
+The migration adds B-tree indexes for teacher/status/date/session columns and `pg_trgm` GIN indexes for substring-matched text columns. Trigram indexes support the `%term%` `ILIKE` searches without requiring a separate full-text search language configuration. Password columns are intentionally absent from indexes.
 
-To add a filter field, add its key to `SearchFilterKey`, define role/entity visibility in `FILTER_DEFINITIONS`, expose the field in the corresponding `entityConfigs` view/select/filter configuration, parse and validate it in `validation.ts`, apply it in `query-builder.ts`, then add its control/chip in `SearchFilter` and any required view/index changes to a migration. Add query-builder and role-scope tests for the new field.
+To add a filter field, add its key to `SearchFilterKey`, define role/entity visibility in `FILTER_DEFINITIONS`, expose the field in the corresponding `entityConfigs` select/filter configuration, parse and validate it in `validation.ts`, apply it in `query-builder.ts`, then add its control/chip in `SearchFilter` and any required index changes to a migration. Add query-builder and role-scope tests for the new field.
+
+## Dashboard Realtime updates
+
+The admin and teacher dashboards open one Realtime channel and refresh server-rendered data after relevant changes:
+
+- Admin: `quizzes`, `quiz_results`, and `teachers`.
+- Teacher: `quizzes` filtered by the numeric `teacher_id`, and `quiz_results` filtered by the authenticated teacher UUID.
+
+Events are debounced for 250 ms before a server refresh. The search hook refetches only when the active entity's table changes. Counts, averages, and score distributions stay in the server data path; the browser does not duplicate that logic.
+
+Apply `supabase/migrations/202610310001_realtime_dashboard.sql` to add those tables to the `supabase_realtime` publication and set `REPLICA IDENTITY FULL` on `quizzes` and `quiz_results`. Realtime `postgres_changes` honors the existing SELECT policies, so no RLS changes are required. If the publication is not enabled, the dashboards still load normally but do not receive live updates.
 
 ## Notes
 
-- Both login forms use Supabase Auth. Account registration and dashboard summary data remain mock implementations; provision roles in trusted `app_metadata` before the account can enter its role's dashboard.
+- Both login forms use Supabase Auth. Account registration remains a mock implementation; dashboard stats, lists, and search read Supabase data by default. Provision roles in trusted `app_metadata` before the account can enter its role's dashboard.
 - The Android package is available at `public/assets/Fili-QuizMo-1.0.0.apk`.
 - The app favicon is generated from `Fili-QuizMo Logo.png`.

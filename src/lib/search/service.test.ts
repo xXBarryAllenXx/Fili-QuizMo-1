@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { MockSearchRepository } from "./mock-repository";
 import { createSearchScope } from "./scope";
-import { executeSearch } from "./service";
+import { executeSearch, mapSearchItem } from "./service";
 import { defaultSearchQuery } from "./url-state";
 import { parseSearchQuery } from "./validation";
 import type { SearchEntity, SearchRow } from "./types";
 
 const rows: Record<SearchEntity, SearchRow[]> = {
-  students: [],
   quizzes: [
     {
       session_id: "quiz-a",
-      teacher_id: "teacher-a",
-      teacher_username: "msantos",
+      teacher_id: 1,
+      teachers: { username: "msantos" },
       title: "Own Quiz",
       status: "ready",
       share_code: "AAA111",
@@ -21,8 +20,8 @@ const rows: Record<SearchEntity, SearchRow[]> = {
     },
     {
       session_id: "quiz-b",
-      teacher_id: "teacher-b",
-      teacher_username: "jdelacruz",
+      teacher_id: 2,
+      teachers: { username: "jdelacruz" },
       title: "Other Quiz",
       status: "ready",
       share_code: "BBB222",
@@ -34,7 +33,7 @@ const rows: Record<SearchEntity, SearchRow[]> = {
     {
       attempt_id: "attempt-a",
       session_id: "quiz-a",
-      teacher_id: "teacher-a",
+      teacher_id: "teacher-auth-a",
       teacher_username: "msantos",
       title: "Own Quiz",
       share_code: "AAA111",
@@ -51,7 +50,7 @@ const rows: Record<SearchEntity, SearchRow[]> = {
     {
       attempt_id: "attempt-b",
       session_id: "quiz-b",
-      teacher_id: "teacher-b",
+      teacher_id: "teacher-auth-b",
       teacher_username: "jdelacruz",
       title: "Other Quiz",
       share_code: "BBB222",
@@ -73,7 +72,8 @@ describe("search service role scoping", () => {
   it("only returns quizzes owned by the authenticated teacher", async () => {
     const context = createSearchScope({
       role: "teacher",
-      userId: "teacher-a",
+      userId: "teacher-auth-a",
+      teacherNumericId: 1,
     });
     const response = await executeSearch({
       context,
@@ -88,11 +88,12 @@ describe("search service role scoping", () => {
   it("does not widen participant results when a teacher edits the scope parameter", async () => {
     const context = createSearchScope({
       role: "teacher",
-      userId: "teacher-a",
+      userId: "teacher-auth-a",
+      teacherNumericId: 1,
     });
     const query = parseSearchQuery(
       new URLSearchParams(
-        "entity=participants&teacher_id=teacher-b",
+        "entity=participants&teacher_id=teacher-auth-b",
       ),
       "teacher",
     );
@@ -108,7 +109,8 @@ describe("search service role scoping", () => {
   it("derives participant status from answered and total questions", async () => {
     const context = createSearchScope({
       role: "teacher",
-      userId: "teacher-a",
+      userId: "teacher-auth-a",
+      teacherNumericId: 1,
     });
     const response = await executeSearch({
       context,
@@ -139,5 +141,56 @@ describe("search service role scoping", () => {
       "quiz-b",
     ]);
     expect(response.meta.scope).toBe("all-records");
+  });
+
+  it("filters quizzes through the embedded teacher username", async () => {
+    const response = await executeSearch({
+      context: createSearchScope({ role: "admin", userId: "admin-id" }),
+      query: parseSearchQuery(
+        new URLSearchParams("entity=quizzes&teacher=jdelacruz"),
+        "admin",
+      ),
+      repository: new MockSearchRepository(rows),
+    });
+
+    expect(response.items.map((item) => item.id)).toEqual(["quiz-b"]);
+    expect(response.items[0]).toMatchObject({
+      teacherUsername: "jdelacruz",
+    });
+  });
+
+  it("maps the embedded teacher relation and quiz count", () => {
+    const quiz = mapSearchItem("quizzes", {
+      session_id: "quiz-a",
+      teacher_id: 1,
+      title: "Own Quiz",
+      status: "ready",
+      share_code: "AAA111",
+      requested_question_count: 5,
+      created_at: "2026-01-01T00:00:00.000Z",
+      teachers: { username: "msantos" },
+    });
+
+    expect(quiz).toMatchObject({
+      entity: "quizzes",
+      teacherId: "1",
+      teacherUsername: "msantos",
+    });
+
+    const teacher = mapSearchItem("teachers", {
+      id: 7,
+      user_id: "teacher-auth-a",
+      username: "msantos",
+      email: "maria.santos@example.test",
+      status: "active",
+      created_at: "2026-01-01T00:00:00.000Z",
+      quizzes: [{ count: 3 }],
+    });
+
+    expect(teacher).toMatchObject({
+      entity: "teachers",
+      username: "msantos",
+      quizCount: 3,
+    });
   });
 });

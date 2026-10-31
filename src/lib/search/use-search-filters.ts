@@ -2,13 +2,32 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DASHBOARD_DATA_CHANGED_EVENT,
+  dashboardTablesFromEvent,
+  type DashboardRealtimeTable,
+} from "@/lib/dashboard/realtime-events";
 import { fetchSearchResults } from "./api-client";
 import {
   defaultSearchQuery,
   parseSearchState,
   serializeSearchState,
 } from "./url-state";
-import type { SearchQuery, SearchResponse, SearchRole } from "./types";
+import type {
+  SearchEntity,
+  SearchQuery,
+  SearchResponse,
+  SearchRole,
+} from "./types";
+
+const REALTIME_TABLE_BY_ENTITY: Record<
+  SearchEntity,
+  DashboardRealtimeTable
+> = {
+  quizzes: "quizzes",
+  participants: "quiz_results",
+  teachers: "teachers",
+};
 
 function messageFromError(error: unknown): string {
   return error instanceof Error
@@ -51,6 +70,7 @@ export function useSearchFilters(
   }, [initialEntity, role, search]);
   const query = parsedState.query;
   const queryKey = serializeSearchState(query);
+  const [realtimeRefresh, setRealtimeRefresh] = useState(0);
   const [request, setRequest] = useState<SearchRequestState>({
     key: "",
     results: null,
@@ -74,6 +94,27 @@ export function useSearchFilters(
     },
     [pathname, query, router],
   );
+
+  useEffect(() => {
+    const table = REALTIME_TABLE_BY_ENTITY[query.entity];
+
+    function handleDashboardDataChanged(event: Event) {
+      if (dashboardTablesFromEvent(event).includes(table)) {
+        setRealtimeRefresh((value) => value + 1);
+      }
+    }
+
+    window.addEventListener(
+      DASHBOARD_DATA_CHANGED_EVENT,
+      handleDashboardDataChanged,
+    );
+
+    return () =>
+      window.removeEventListener(
+        DASHBOARD_DATA_CHANGED_EVENT,
+        handleDashboardDataChanged,
+      );
+  }, [query.entity]);
 
   useEffect(() => {
     if (parsedState.error) {
@@ -125,7 +166,7 @@ export function useSearchFilters(
       active = false;
       controller.abort();
     };
-  }, [parsedState.error, query, queryKey]);
+  }, [parsedState.error, query, queryKey, realtimeRefresh]);
 
   const requestMatchesQuery = request.key === queryKey;
 

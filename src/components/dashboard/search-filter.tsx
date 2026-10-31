@@ -12,6 +12,7 @@ import {
 } from "@/lib/search/config";
 import { getActiveFilterChips } from "@/lib/search/active-filters";
 import { defaultSearchQuery } from "@/lib/search/url-state";
+import { useDebouncedValue } from "@/lib/search/use-debounced-value";
 import { useSearchFilters } from "@/lib/search/use-search-filters";
 import { TRANSIENT_INPUTS_RESET_EVENT } from "@/lib/session/session-hygiene";
 import type {
@@ -45,28 +46,34 @@ function DebouncedTextInput({
   onValueChange: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
+  const [lastValue, setLastValue] = useState(value);
+  const debouncedDraft = useDebouncedValue(draft, 300);
   const callbackRef = useRef(onValueChange);
-  const timeoutRef = useRef<number | null>(null);
+  const previousDebouncedRef = useRef(debouncedDraft);
+
+  // Adjust the draft when the URL state changes externally (for example when
+  // a filter chip is removed). This is React's documented state-adjustment
+  // pattern for derived state during render.
+  if (lastValue !== value) {
+    setLastValue(value);
+    setDraft(value);
+  }
 
   useEffect(() => {
     callbackRef.current = onValueChange;
   }, [onValueChange]);
 
-  useEffect(
-    () => () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    if (previousDebouncedRef.current === debouncedDraft) {
+      return;
+    }
+
+    previousDebouncedRef.current = debouncedDraft;
+    callbackRef.current(debouncedDraft);
+  }, [debouncedDraft]);
 
   useEffect(() => {
     function resetDraft() {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
       setDraft("");
     }
 
@@ -85,15 +92,7 @@ function DebouncedTextInput({
       placeholder={placeholder}
       aria-describedby={describedBy}
       onChange={(event) => {
-        const nextValue = event.currentTarget.value;
-        setDraft(nextValue);
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-        }
-        timeoutRef.current = window.setTimeout(
-          () => callbackRef.current(nextValue),
-          300,
-        );
+        setDraft(event.currentTarget.value);
       }}
       className="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
     />
@@ -111,16 +110,6 @@ function formatDate(value: string): string {
 }
 
 function itemValues(item: SearchItem): string[] {
-  if (item.entity === "students") {
-    return [
-      item.name,
-      item.schoolId,
-      item.email,
-      getStatusLabel("students", item.enrollmentStatus),
-      getStatusLabel("teachers", item.accountStatus),
-    ];
-  }
-
   if (item.entity === "quizzes") {
     return [
       item.title,
@@ -164,34 +153,9 @@ function FilterFields({
   updateQuery: (patch: Partial<SearchQuery>) => void;
   idPrefix: string;
 }) {
-  const config = getEntityConfig(entity);
-
   function renderFilter(key: SearchFilterKey) {
     const definition = FILTER_DEFINITIONS[key];
     const id = `${idPrefix}-${key}`;
-
-    if (key === "status") {
-      return (
-        <label key={key} htmlFor={id} className="block text-sm font-medium">
-          {config.statusLabel}
-          <select
-            id={id}
-            value={query.status ?? ""}
-            onChange={(event) =>
-              updateQuery({ status: event.currentTarget.value || null })
-            }
-            className="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2"
-          >
-            <option value="">All statuses</option>
-            {config.statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      );
-    }
 
     if (key === "accountStatus") {
       return (
@@ -252,7 +216,6 @@ function FilterFields({
       <label key={key} htmlFor={id} className="block text-sm font-medium">
         {definition.label}
         <DebouncedTextInput
-          key={`${key}-${value}`}
           id={id}
           value={value}
           maxLength={definition.maxLength}
@@ -359,10 +322,6 @@ export function SearchFilter({ role, entity }: SearchFilterProps) {
       updateQuery({ q: "" });
       return;
     }
-    if (key === "status") {
-      updateQuery({ status: null });
-      return;
-    }
     if (key === "accountStatus") {
       updateQuery({ accountStatus: null });
       return;
@@ -394,7 +353,6 @@ export function SearchFilter({ role, entity }: SearchFilterProps) {
           Search {config.pluralLabel.toLowerCase()}
         </label>
         <DebouncedTextInput
-          key={`q-${query.q}`}
           id={`${entity}-search`}
           type="search"
           value={query.q}
@@ -636,9 +594,6 @@ export function SearchFilter({ role, entity }: SearchFilterProps) {
 }
 
 function resultHeaders(entity: SearchEntity): string[] {
-  if (entity === "students") {
-    return ["Student", "School ID", "Email", "Enrollment status", "Account status"];
-  }
   if (entity === "quizzes") {
     return [
       "Quiz",

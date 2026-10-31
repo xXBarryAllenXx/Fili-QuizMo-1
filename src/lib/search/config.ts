@@ -3,6 +3,7 @@ import type {
   SearchFilterKey,
   SearchRole,
   SearchSortField,
+  SearchTable,
 } from "./types";
 
 export type SearchStatusOption = {
@@ -25,11 +26,11 @@ export type SearchEntityConfig = {
   description: string;
   searchPlaceholder: string;
   searchHint: string;
-  table: string | null;
+  table: SearchTable;
   idColumn: string;
   scopeColumn: string;
+  scopeId: "auth" | "teacher";
   dateColumn: string;
-  statusColumn: string | null;
   statusLabel: string;
   statusOptions: readonly SearchStatusOption[];
   accountStatusColumn: string | null;
@@ -62,10 +63,6 @@ export const FILTER_DEFINITIONS: Record<
   SearchFilterKey,
   SearchFilterDefinition
 > = {
-  status: {
-    label: "Status",
-    type: "select",
-  },
   accountStatus: {
     label: "Account status",
     type: "select",
@@ -104,49 +101,20 @@ export const FILTER_DEFINITIONS: Record<
 };
 
 export const entityConfigs: Record<SearchEntity, SearchEntityConfig> = {
-  // There is no student table in the deployed schema. The entity stays in the
-  // union for backwards-compatible URLs, but no role can search it.
-  students: {
-    label: "Student",
-    pluralLabel: "Students",
-    description: "Student records are not part of the deployed schema.",
-    searchPlaceholder: "Student search is unavailable",
-    searchHint: "Student records are not available in this deployment.",
-    table: null,
-    idColumn: "student_id",
-    scopeColumn: "teacher_id",
-    dateColumn: "created_at",
-    statusColumn: null,
-    statusLabel: "Enrollment status",
-    statusOptions: [
-      { value: "active", label: "Active" },
-      { value: "inactive", label: "Inactive" },
-    ],
-    accountStatusColumn: null,
-    searchColumns: [],
-    searchableFields: [],
-    sortColumns: {
-      name: "student_id",
-      date: "created_at",
-      status: "student_id",
-    },
-    select: [],
-    filters: [],
-  },
   quizzes: {
     label: "Quiz",
     pluralLabel: "Quizzes",
     description:
-      "Search quiz sessions by title or share code, and narrow results by teacher or date.",
+      "Search quizzes by title or share code, and narrow results by teacher or date.",
     searchPlaceholder: "Search quiz title or share code",
     searchHint:
       "Searches quiz titles and share codes. Teacher filters are available to admins.",
-    table: "quiz_sessions",
+    table: "quizzes",
     idColumn: "session_id",
     scopeColumn: "teacher_id",
+    scopeId: "teacher",
     dateColumn: "created_at",
-    statusColumn: "status",
-    statusLabel: "Session status",
+    statusLabel: "Quiz status",
     statusOptions: [{ value: "ready", label: "Ready" }],
     accountStatusColumn: null,
     searchColumns: ["title", "share_code"],
@@ -159,12 +127,12 @@ export const entityConfigs: Record<SearchEntity, SearchEntityConfig> = {
     select: [
       "session_id",
       "teacher_id",
-      "teacher_username",
       "title",
       "status",
       "share_code",
       "requested_question_count",
       "created_at",
+      "teachers(username)",
     ],
     filters: ["teacher", "from", "to"],
   },
@@ -179,8 +147,8 @@ export const entityConfigs: Record<SearchEntity, SearchEntityConfig> = {
     table: "quiz_results",
     idColumn: "attempt_id",
     scopeColumn: "teacher_id",
+    scopeId: "auth",
     dateColumn: "recorded_at",
-    statusColumn: null,
     statusLabel: "Attempt status",
     statusOptions: [
       { value: "completed", label: "Completed" },
@@ -227,26 +195,35 @@ export const entityConfigs: Record<SearchEntity, SearchEntityConfig> = {
     label: "Teacher",
     pluralLabel: "Teachers",
     description:
-      "Search teacher accounts by email and filter by account status.",
-    searchPlaceholder: "Search teacher email",
+      "Search teacher accounts by username or email and filter by account status.",
+    searchPlaceholder: "Search teacher username or email",
     searchHint:
-      "Searches teacher email and account status. This view is admin-only.",
-    table: "teacher_accounts",
+      "Searches teacher username, email, and account status. This view is admin-only.",
+    table: "teachers",
     idColumn: "id",
     scopeColumn: "id",
+    scopeId: "teacher",
     dateColumn: "created_at",
-    statusColumn: "status",
     statusLabel: "Account status",
     statusOptions: ACCOUNT_STATUS_OPTIONS,
     accountStatusColumn: "status",
-    searchColumns: ["email", "status"],
-    searchableFields: ["Email", "Account status"],
+    searchColumns: ["username", "email", "status"],
+    searchableFields: ["Username", "Email", "Account status"],
     sortColumns: {
-      name: "email",
+      name: "username",
       date: "created_at",
       status: "status",
     },
-    select: ["id", "email", "status", "school_id", "created_at"],
+    select: [
+      "id",
+      "user_id",
+      "username",
+      "email",
+      "status",
+      "school_id",
+      "created_at",
+      "quizzes(count)",
+    ],
     filters: ["accountStatus", "from", "to"],
   },
 };

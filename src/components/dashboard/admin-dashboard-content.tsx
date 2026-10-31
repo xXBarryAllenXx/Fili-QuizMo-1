@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { SearchFilter } from "@/components/dashboard/search-filter";
+import { useDashboardRealtime } from "@/lib/dashboard/use-dashboard-realtime";
 import { defaultSearchQuery } from "@/lib/search/url-state";
 import { logoutAndRedirect } from "@/lib/session/session-hygiene";
 import type {
@@ -46,6 +47,8 @@ export default function AdminDashboardContent({
   const [logoutError, setLogoutError] = useState("");
   const router = useRouter();
   const pathname = usePathname();
+
+  useDashboardRealtime({ role: "admin" });
 
   useEffect(() => {
     function clearManualSection() {

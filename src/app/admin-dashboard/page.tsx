@@ -34,7 +34,7 @@ async function ProtectedAdminDashboard() {
   }
 
   const { data: adminAccount, error: adminAccountError } = await supabase
-    .from("admin_accounts")
+    .from("admins")
     .select("user_id")
     .eq("user_id", user.id)
     .maybeSingle();
