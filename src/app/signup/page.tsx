@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Create an Account"
-      subtitle="Sign up to start using Fili-QuizMo."
+      subtitle="Sign up to begin your quiz journey."
       footer={
         <>
           Already have an account?{" "}

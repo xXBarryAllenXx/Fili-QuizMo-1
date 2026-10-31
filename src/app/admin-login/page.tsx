@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminLoginForm } from "@/components/auth/admin-login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+
+export const metadata: Metadata = {
+  title: "Admin Login | Fili-QuizMo",
+};
+
 export default function AdminLoginPage() {
   return (
     <AuthShell

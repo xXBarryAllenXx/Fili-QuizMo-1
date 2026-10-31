@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 type CarouselItem = {
   src: string;
@@ -73,9 +74,7 @@ export function Carousel({ items }: CarouselProps) {
               />
             </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-primary via-primary/90 to-transparent px-6 pb-12 pt-16 text-white md:px-8">
-              <p className="text-sm font-semibold uppercase tracking-wide text-white/60">
-                Fili-QuizMo
-              </p>
+              <BrandLogo className="h-10 w-40" />
               <h3 className="mt-2 text-2xl font-bold md:text-3xl">
                 {slide.caption}
               </h3>
@@ -134,3 +133,4 @@ export function Carousel({ items }: CarouselProps) {
     </div>
   );
 }
+import { BrandLogo } from "@/components/layout/brand-logo";

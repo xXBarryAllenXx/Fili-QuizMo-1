@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 const quickLinks = [
   { href: "/", label: "Home" },
@@ -23,17 +24,9 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
           <div className="max-w-sm">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/assets/Fili-QuizMo Logo.png"
-                alt=""
-                className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20"
-              />
-              <span className="text-xl font-bold tracking-tight">
-                Fili-QuizMo
-              </span>
-            </Link>
+            <div className="inline-flex items-center">
+              <BrandLogo className="h-12 w-56" />
+            </div>
             <p className="mt-4 text-sm leading-6 text-primary-foreground/75">
               An interactive quiz platform built for learners, teachers, and
               admins.
@@ -78,7 +71,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-sm text-primary-foreground/60 sm:flex-row">
-          <p>© 2026 Fili-QuizMo. All rights reserved.</p>
+          <p>© 2026 All rights reserved.</p>
           <p>Built for learners and educators.</p>
         </div>
       </div>

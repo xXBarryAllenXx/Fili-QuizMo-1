@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
@@ -197,6 +198,14 @@ export function AdminLoginForm() {
             autoComplete="current-password"
             required
           />
+          <div className="-mt-2 text-right">
+            <Link
+              href="/change-password"
+              className="text-xs font-semibold text-secondary hover:underline focus-visible:outline"
+            >
+              Forgot password?
+            </Link>
+          </div>
         </>
       ) : (
         <>

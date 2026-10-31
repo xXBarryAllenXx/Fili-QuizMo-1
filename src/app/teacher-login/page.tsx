@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { TeacherLoginForm } from "@/components/auth/teacher-login-form";
+
+export const metadata: Metadata = {
+  title: "Teacher Login | Fili-QuizMo",
+};
 
 export default function TeacherLoginPage() {
   return (
@@ -9,13 +14,22 @@ export default function TeacherLoginPage() {
       subtitle="Sign in to manage quizzes, students, and scores."
       footer={
         <>
-          New to Fili-QuizMo?{" "}
+          New here?{" "}
           <Link
             href="/signup"
             className="font-semibold text-primary hover:underline"
           >
             Create an account
           </Link>
+          <span className="block pt-3">
+            Student?{" "}
+            <Link
+              href="/student-login"
+              className="font-semibold text-secondary hover:underline focus-visible:outline"
+            >
+              Student Log In
+            </Link>
+          </span>
         </>
       }
     >

@@ -20,8 +20,10 @@ export function AuthShell({
       <Navbar />
 
       <main className="flex flex-1 items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-          <h1 className="text-3xl font-bold text-foreground">{title}</h1>
+        <div className="w-full max-w-md bg-white p-6 shadow-lg sm:p-8">
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+            {title}
+          </h1>
           <p className="mt-2 text-sm text-neutral-500">{subtitle}</p>
           <div className="mt-8">{children}</div>
           {footer ? (

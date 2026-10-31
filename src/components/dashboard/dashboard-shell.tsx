@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 export type DashboardNavItem = {
   key: string;
@@ -72,20 +73,18 @@ export function DashboardShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center border-b border-white/10 px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 text-lg font-bold tracking-tight"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/assets/Fili-QuizMo Logo.png"
-              alt=""
-              className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20"
-            />
-            Fili-QuizMo
-          </Link>
+        <div className="flex h-16 items-center border-b border-white/10 px-4">
+          <div className="flex min-w-0 items-center">
+            <BrandLogo priority className="h-12 w-52" />
+          </div>
         </div>
+
+        <Link
+          href="/"
+          className="mx-4 mb-2 block bg-white/10 px-4 py-2 text-sm text-primary-foreground hover:bg-white/20 hover:text-white focus-visible:outline"
+        >
+          Home
+        </Link>
 
         <nav className="flex-1 space-y-1 p-4">
           {navItems.map((item) => {
