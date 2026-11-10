@@ -26,7 +26,9 @@ import { PaginatedTable } from "@/components/ui/paginated-table";
 import { PixelCard } from "@/components/ui/pixel-primitives";
 import { AssessmentSection } from "@/components/dashboard/assessment-section";
 import { AssignedQuizzesSection } from "@/components/dashboard/assigned-quizzes-section";
+import { BadgesPreview } from "@/components/dashboard/badges-preview";
 import { BadgesSection } from "@/components/dashboard/badges-section";
+import { UpNextSection } from "@/components/dashboard/up-next-section";
 import { UnreadMessagesNotice } from "@/components/dashboard/unread-messages-notice";
 import { PerformanceNotices } from "@/components/dashboard/performance-notices";
 import { studentNotice } from "@/lib/dashboard/performance-notice";
@@ -275,6 +277,7 @@ export default function StudentDashboardContent({
   );
   // Read once when the page opens; the notice looks at the last two weeks.
   const [now] = useState(() => Date.now());
+  const [showMoreCharts, setShowMoreCharts] = useState(false);
   const notice = useMemo(
     () =>
       studentNotice(
@@ -385,9 +388,11 @@ export default function StudentDashboardContent({
           : []),
       ]
     : [];
-  const chartTabs = chartTabsBase.map((tab, index) => ({
+  // The score trend is always shown; the rest sit behind "More charts".
+  const trendChart = chartTabsBase[0] ?? null;
+  const moreChartTabs = chartTabsBase.slice(1).map((tab, index, rest) => ({
     ...tab,
-    wide: chartTabsBase.length % 2 === 1 && index === 0,
+    wide: rest.length % 2 === 1 && index === 0,
   }));
 
   return (
@@ -425,6 +430,9 @@ export default function StudentDashboardContent({
             }
           />
 
+          {/* To do: what the student still has to take, soonest deadline first. */}
+          <UpNextSection onViewAll={() => navigateToSection("quizzes")} />
+
           {/* Progress: the totals and the charts that explain them. */}
           <section aria-labelledby="student-progress-title" className="space-y-2">
             <h3
@@ -456,9 +464,27 @@ export default function StudentDashboardContent({
               />
             </StatGrid>
 
-            {chartTabs.length > 0 ? (
-              // Phones: one chart at a time behind tabs. md and up: 2-column grid.
-              <ChartTabs label="Performance charts" tabs={chartTabs} />
+            {trendChart ? trendChart.content : null}
+
+            {moreChartTabs.length > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  aria-expanded={showMoreCharts}
+                  aria-controls="student-more-charts"
+                  onClick={() => setShowMoreCharts((open) => !open)}
+                >
+                  {showMoreCharts ? "Hide charts" : "More charts"}
+                </Button>
+                {showMoreCharts ? (
+                  <div id="student-more-charts">
+                    {/* Phones: one chart at a time behind tabs. md and up: 2-column grid. */}
+                    <ChartTabs label="More performance charts" tabs={moreChartTabs} />
+                  </div>
+                ) : null}
+              </>
             ) : null}
           </section>
 
@@ -488,6 +514,9 @@ export default function StudentDashboardContent({
               onReview={openAssessment}
             />
           </section>
+
+          {/* Badges: what is earned and how close the next one is. */}
+          <BadgesPreview onViewAll={() => navigateToSection("profile")} />
         </div>
       ) : null}
 

@@ -12,8 +12,20 @@ export type Achievement = {
   name: string;
   requirement: string;
   progress: string;
+  /** How close the student is to this badge, from 0 (nothing yet) to 1. */
+  fraction: number;
   unlockedAt: string | null;
 };
+
+/** The locked badge the student is closest to earning, or null if none is locked. */
+export function nextAchievement(achievements: readonly Achievement[]): Achievement | null {
+  let next: Achievement | null = null;
+  for (const item of achievements) {
+    if (item.unlockedAt !== null) continue;
+    if (next === null || item.fraction > next.fraction) next = item;
+  }
+  return next;
+}
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid achievements response.");
@@ -48,8 +60,16 @@ export function parseAchievements(value: unknown): Achievement[] {
     `${Math.min(streak, 3)}/3 consecutive quizzes`,
     `${best.toFixed(1)}% / 100%`,
   ];
+  const fractions = [
+    Math.min(count, 1) / 1,
+    Math.min(count, 5) / 5,
+    Math.min(improvement, 10) / 10,
+    Math.min(streak, 3) / 3,
+    Math.min(best, 100) / 100,
+  ];
   return DEFINITIONS.map(([name, requirement], index) => ({
     id: index + 1, name, requirement, progress: progress[index],
+    fraction: fractions[index],
     unlockedAt: awards.get(index + 1) ?? null,
   }));
 }

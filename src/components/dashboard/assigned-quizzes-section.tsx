@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createSessionRequestController, releaseSessionRequestController } from "@/lib/auth/session-state";
-import { parseAssignedQuizzes } from "@/lib/classes/client";
-import { readStudentResponse } from "@/lib/classes/student-request";
+import { useAssignedQuizzes } from "@/lib/dashboard/use-assigned-quizzes";
 import {
   PixelButton,
   PixelBadge,
@@ -17,7 +14,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-PH", {
   timeZone: "Asia/Manila",
 });
 
-function formatDeadline(value: string | null): string {
+export function formatDeadline(value: string | null): string {
   if (!value) return "No deadline";
 
   const date = new Date(value);
@@ -38,32 +35,28 @@ export function quizStatus(quiz: AssignedQuiz): Status {
   return { label: "To do", variant: "info" };
 }
 
+/** Quizzes still waiting on the student, soonest deadline first (no deadline last). */
+export function upNextQuizzes(quizzes: readonly AssignedQuiz[], limit: number): AssignedQuiz[] {
+  const time = (quiz: AssignedQuiz) => {
+    const value = quiz.expiresAt ? Date.parse(quiz.expiresAt) : NaN;
+    return Number.isNaN(value) ? Infinity : value;
+  };
+  return quizzes
+    .filter((quiz) => quizStatus(quiz).label === "To do")
+    .sort((left, right) => {
+      const a = time(left);
+      const b = time(right);
+      return a === b ? 0 : a < b ? -1 : 1;
+    })
+    .slice(0, limit);
+}
+
 /**
  * Quizzes the teacher sent to this student or their class. Quizzes are played
  * in the mobile app, so this is a to-do list, not a player.
  */
 export function AssignedQuizzesSection() {
-  const [quizzes, setQuizzes] = useState<AssignedQuiz[] | null>(null);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    const controller = createSessionRequestController();
-    async function load() {
-      try {
-        const response = await fetch("/api/assigned-quizzes", {
-          cache: "no-store", signal: controller.signal,
-        });
-        const data = parseAssignedQuizzes(await readStudentResponse(response));
-        if (!controller.signal.aborted) setQuizzes(data);
-      } catch (error) {
-        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Quizzes could not be loaded. Please retry.");
-      } finally {
-        releaseSessionRequestController(controller);
-      }
-    }
-    void load();
-    return () => { controller.abort(); releaseSessionRequestController(controller); };
-  }, [attempt]);
+  const { quizzes, error, retry } = useAssignedQuizzes();
   return (
     <div className="space-y-2 sm:space-y-3">
       <div>
@@ -77,7 +70,7 @@ export function AssignedQuizzesSection() {
       {error ? (
         <PixelCard>
           <p role="alert" className="text-sm">{error}</p>
-          <PixelButton className="mt-3" onClick={() => { setError(""); setAttempt((value) => value + 1); }}>Retry</PixelButton>
+          <PixelButton className="mt-3" onClick={retry}>Retry</PixelButton>
         </PixelCard>
       ) : quizzes === null ? (
         <p role="status" className="text-sm">Loading your assigned quizzes...</p>

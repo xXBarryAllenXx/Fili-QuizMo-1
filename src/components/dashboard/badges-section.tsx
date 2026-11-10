@@ -1,45 +1,12 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { PixelButton, PixelCard } from "@/components/ui/pixel-primitives";
-import { parseAchievements, type Achievement } from "@/lib/dashboard/achievements";
-import { readStudentResponse } from "@/lib/classes/student-request";
-import {
-  createSessionRequestController,
-  releaseSessionRequestController,
-} from "@/lib/auth/session-state";
+import { useAchievements } from "@/lib/dashboard/use-achievements";
 
 /** Loads only when opened, using the mobile app's saved awards and artwork. */
 export function BadgesSection() {
-  const [achievements, setAchievements] = useState<Achievement[] | null>(null);
-  const [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    const controller = createSessionRequestController();
-    async function load() {
-      try {
-        const response = await fetch("/api/student-achievements", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const data = parseAchievements(await readStudentResponse(response));
-        if (!controller.signal.aborted) setAchievements(data);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setError(error instanceof Error ? error.message : "Achievements could not sync. Please retry.");
-        }
-      } finally {
-        releaseSessionRequestController(controller);
-      }
-    }
-    void load();
-    return () => {
-      controller.abort();
-      releaseSessionRequestController(controller);
-    };
-  }, [retry]);
+  const { achievements, error, retry } = useAchievements();
 
   const earned = achievements?.filter((item) => item.unlockedAt !== null).length ?? 0;
 
@@ -52,7 +19,7 @@ export function BadgesSection() {
       {error ? (
         <PixelCard className="text-center">
           <p role="alert" className="text-sm">{error}</p>
-          <PixelButton className="mt-3" onClick={() => { setError(""); setRetry((value) => value + 1); }}>Retry</PixelButton>
+          <PixelButton className="mt-3" onClick={retry}>Retry</PixelButton>
         </PixelCard>
       ) : achievements === null ? (
         <p role="status" className="py-8 text-center text-sm text-px-muted">Loading achievements...</p>
