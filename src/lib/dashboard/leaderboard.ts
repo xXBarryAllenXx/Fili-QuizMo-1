@@ -10,7 +10,9 @@ import { formatRawScore } from "./raw-score";
  * leaderboard, so change them here and the explanation stays in step.
  *
  * Per quiz a student has taken (only their BEST attempt on that quiz counts,
- * so retaking over and over cannot pile up points):
+ * so retaking over and over cannot pile up points). A quiz is one quiz
+ * session, not one title: two different quizzes that happen to share a title
+ * are worth points separately:
  *   best score % / 10, rounded   -> 0 to 10 points for how well they did
  *   + completion                  -> for finishing the quiz at all
  *   + perfect                     -> extra for a 100% score
@@ -67,6 +69,8 @@ export type LeaderboardData = {
 };
 
 type ResultLike = {
+  /** Identifies the quiz. Falls back to the title only when it is missing. */
+  session_id?: string | null;
   title: string;
   participant_username: string;
   percentage: number | string;
@@ -79,6 +83,11 @@ const MAX_ENTRIES = 10;
 const MAX_QUIZZES = 6;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** One quiz = one session. Rows without a session id fall back to the title. */
+function quizKey(row: ResultLike): string {
+  return row.session_id ? `session:${row.session_id}` : `title:${row.title}`;
+}
 
 function toScore(value: number | string): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -99,7 +108,7 @@ function rankStudents(
       lastIso: string;
       bestScore: number;
       bestRaw: string | null;
-      /** Best percentage per quiz title, for points. */
+      /** Best percentage per quiz (session), for points. */
       bestByQuiz: Map<string, number>;
     }
   >();
@@ -128,9 +137,10 @@ function rankStudents(
       entry.bestRaw = raw;
     }
 
+    const quiz = quizKey(row);
     entry.bestByQuiz.set(
-      row.title,
-      Math.max(entry.bestByQuiz.get(row.title) ?? 0, score),
+      quiz,
+      Math.max(entry.bestByQuiz.get(quiz) ?? 0, score),
     );
 
     entry.scores.push(score);
@@ -187,25 +197,49 @@ function rankStudents(
 export function buildLeaderboards(
   rows: readonly ResultLike[],
 ): LeaderboardData {
-  const byTitle = new Map<string, { rows: ResultLike[]; latest: number }>();
+  const byQuizKey = new Map<
+    string,
+    { title: string; rows: ResultLike[]; latest: number }
+  >();
 
   for (const row of rows) {
-    const group = byTitle.get(row.title) ?? { rows: [], latest: 0 };
+    const key = quizKey(row);
+    const group = byQuizKey.get(key) ?? {
+      title: row.title,
+      rows: [],
+      latest: 0,
+    };
     group.rows.push(row);
     group.latest = Math.max(group.latest, Date.parse(row.completed_at) || 0);
-    byTitle.set(row.title, group);
+    byQuizKey.set(key, group);
   }
 
-  const byQuiz = [...byTitle.entries()]
-    .sort((left, right) => right[1].latest - left[1].latest)
-    .slice(0, MAX_QUIZZES)
-    .map(
-      ([quiz, group]): Leaderboard => ({
-        quiz,
+  const groups = [...byQuizKey.values()]
+    .sort((left, right) => right.latest - left.latest)
+    .slice(0, MAX_QUIZZES);
+
+  // Different quizzes can share a title; number them so the picker can tell
+  // them apart (most recently active first).
+  const titleCount = new Map<string, number>();
+  for (const group of groups) {
+    titleCount.set(group.title, (titleCount.get(group.title) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+
+  const byQuiz = groups
+    .map((group): Leaderboard => {
+      const position = (seen.get(group.title) ?? 0) + 1;
+      seen.set(group.title, position);
+
+      return {
+        quiz:
+          (titleCount.get(group.title) ?? 1) > 1
+            ? `${group.title} (${position})`
+            : group.title,
         rankedBy: "best",
         entries: rankStudents(group.rows, "best"),
-      }),
-    )
+      };
+    })
     .filter((board) => board.entries.length > 0);
 
   return {
