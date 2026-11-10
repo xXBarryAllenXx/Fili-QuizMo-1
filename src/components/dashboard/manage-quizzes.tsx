@@ -63,10 +63,13 @@ function sentToText(sentTo: QuizSentTo | undefined): string {
 export function ManageQuizzesTable({
   actorRole,
   assignedTo = {},
+  onOpenResults,
 }: {
   actorRole: SearchRole;
   /** Where each quiz was sent, by quiz id (teacher dashboard only). */
   assignedTo?: Readonly<Record<string, QuizSentTo>>;
+  /** Adds a Results button that opens the quiz's scores (teacher dashboard). */
+  onOpenResults?: (title: string) => void;
 }) {
   const router = useRouter();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -152,9 +155,20 @@ export function ManageQuizzesTable({
         entity="quizzes"
         renderActions={(item) =>
           isQuiz(item) ? (
-            // Phones: both buttons share the cell width, compact text.
-            // sm and up: natural width, regular text.
-            <div className="flex w-full gap-1.5 sm:w-auto sm:gap-2 [&>button]:flex-1 [&>button]:px-2.5 [&>button]:text-xs sm:[&>button]:flex-none sm:[&>button]:px-3 sm:[&>button]:text-sm">
+            // Phones: the buttons share the cell width (and wrap if there are
+            // three), compact text. sm and up: natural width, regular text.
+            <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:gap-2 [&>button]:min-w-16 [&>button]:flex-1 [&>button]:px-2.5 [&>button]:text-xs sm:[&>button]:flex-none sm:[&>button]:px-3 sm:[&>button]:text-sm">
+              {onOpenResults ? (
+                <PixelButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  aria-label={`Results for ${item.title}`}
+                  onClick={() => onOpenResults(item.title)}
+                >
+                  Results
+                </PixelButton>
+              ) : null}
               <PixelButton
                 type="button"
                 variant="accent"

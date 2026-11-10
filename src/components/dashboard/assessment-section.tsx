@@ -489,7 +489,7 @@ function TeacherAttemptList({
 
       <section className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-foreground">Assessment</h2>
+          <h2 className="text-xl font-bold text-foreground">Student attempts</h2>
           <p className="mt-1 text-sm text-px-muted">
             Review each student&apos;s answers, or see how their scores moved
             across retakes.

@@ -196,6 +196,8 @@ function rankStudents(
 
 export function buildLeaderboards(
   rows: readonly ResultLike[],
+  /** Students shown per board. Classes are small, so they ask for more. */
+  limit = MAX_ENTRIES,
 ): LeaderboardData {
   const byQuizKey = new Map<
     string,
@@ -237,7 +239,7 @@ export function buildLeaderboards(
             ? `${group.title} (${position})`
             : group.title,
         rankedBy: "best",
-        entries: rankStudents(group.rows, "best"),
+        entries: rankStudents(group.rows, "best", limit),
       };
     })
     .filter((board) => board.entries.length > 0);
@@ -246,7 +248,7 @@ export function buildLeaderboards(
     overall: {
       quiz: null,
       rankedBy: "average",
-      entries: rankStudents(rows, "average"),
+      entries: rankStudents(rows, "average", limit),
     },
     byQuiz,
   };

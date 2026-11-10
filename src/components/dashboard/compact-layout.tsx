@@ -155,3 +155,24 @@ export function ChartTabs({
     </div>
   );
 }
+
+/** One card style for every chart and table panel so the sections look the same. */
+export function ChartPanel({
+  title,
+  caption,
+  children,
+}: {
+  title: string;
+  caption: string;
+  children: ReactNode;
+}) {
+  return (
+    <PixelCard as="article" className="p-2.5! sm:p-3!">
+      <h3 className="text-sm font-semibold text-foreground sm:text-base">
+        {title}
+      </h3>
+      <p className="mt-0.5 text-xs text-neutral-500 sm:text-sm">{caption}</p>
+      <div className="mt-2">{children}</div>
+    </PixelCard>
+  );
+}

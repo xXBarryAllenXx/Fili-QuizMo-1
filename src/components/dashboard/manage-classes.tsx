@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { AddStudentsModal } from "@/components/dashboard/add-students-modal";
+import {
+  ClassDetail,
+  isClassTab,
+  type ClassDetailActions,
+} from "@/components/dashboard/class-detail";
+import { CreateStudentModal } from "@/components/dashboard/create-student-modal";
+import { StudentQuizzesModal } from "@/components/dashboard/student-quizzes-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PixelModal } from "@/components/ui/pixel-modal";
 import {
@@ -11,50 +19,101 @@ import {
   PixelInput,
 } from "@/components/ui/pixel-primitives";
 import {
+  addStudents,
   createClass,
   deleteClass,
   listClasses,
+  listSuggestions,
   MAX_CLASS_NAME,
   removeStudent,
   renameClass,
   type ClassStudent,
+  type StudentSuggestion,
   type TeacherClass,
 } from "@/lib/classes/client";
+import type { ClassDashboardView } from "@/lib/dashboard/data";
+import { classesHref } from "@/lib/dashboard/teacher-sections";
+import { useUrlParams } from "@/lib/dashboard/use-url-params";
 
 type Feedback = { kind: "success" | "error"; text: string } | null;
-type RemoveTarget = { classItem: TeacherClass; student: ClassStudent };
+type StudentTarget = { classItem: TeacherClass | null; student: ClassStudent };
 
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+async function deleteStudentAccount(userId: string): Promise<void> {
+  const response = await fetch("/api/accounts", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "delete",
+      accountRole: "student",
+      accountId: userId,
+    }),
+    cache: "no-store",
+  });
+
+  if (response.ok) return;
+
+  const body: unknown = await response.json().catch(() => null);
+  const error =
+    typeof body === "object" && body !== null
+      ? (body as { error?: unknown }).error
+      : null;
+  const message =
+    typeof error === "object" && error !== null
+      ? (error as { message?: unknown }).message
+      : error;
+
+  throw new Error(
+    typeof message === "string" ? message : "Unable to delete the account.",
+  );
+}
+
 /**
- * The teacher's classes: create one, add or remove students, delete it.
- * Quizzes sent to a class reach whoever is in it when the student opens their
- * quiz list, so changes here apply to quizzes already sent.
+ * The teacher's classes. The list shows each class at a glance; opening one
+ * shows its students, the quizzes sent to it and its ranking, and is where
+ * students are created, added, removed and looked up.
  */
-export function ManageClasses() {
+export function ManageClasses({
+  classViews,
+  onOpenQuiz,
+}: {
+  classViews: readonly ClassDashboardView[];
+  onOpenQuiz: (title: string) => void;
+}) {
+  const router = useRouter();
+  const { searchParams, pushHref } = useUrlParams();
+  const openClassId = searchParams.get("class");
+  const rawTab = searchParams.get("tab");
+  const tab = isClassTab(rawTab) ? rawTab : "students";
+
   const [classes, setClasses] = useState<TeacherClass[] | null>(null);
+  const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
   const [addTarget, setAddTarget] = useState<TeacherClass | null>(null);
+  const [newStudentTarget, setNewStudentTarget] = useState<TeacherClass | null>(null);
   const [renameTarget, setRenameTarget] = useState<TeacherClass | null>(null);
   const [renameText, setRenameText] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<TeacherClass | null>(null);
-  const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<StudentTarget | null>(null);
+  const [accountTarget, setAccountTarget] = useState<StudentTarget | null>(null);
+  const [viewTarget, setViewTarget] = useState<ClassStudent | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    listClasses()
-      .then((rows) => {
+    Promise.all([listClasses(), listSuggestions().catch(() => [])])
+      .then(([rows, suggested]) => {
         if (cancelled) return;
         setClasses(rows);
+        setSuggestions(suggested);
         setLoadError("");
       })
       .catch((error: unknown) => {
@@ -71,15 +130,30 @@ export function ManageClasses() {
 
   function reload() {
     setReloadKey((key) => key + 1);
+    // The averages and quiz progress come from the server page.
+    router.refresh();
   }
 
-  function toggleExpanded(classId: string) {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(classId)) next.delete(classId);
-      else next.add(classId);
-      return next;
-    });
+  async function runAction(
+    action: () => Promise<void>,
+    success: string,
+    close: () => void,
+  ) {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await action();
+      setFeedback({ kind: "success", text: success });
+      reload();
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        text: error instanceof Error ? error.message : "The request failed.",
+      });
+    } finally {
+      setBusy(false);
+      close();
+    }
   }
 
   async function submitNew(event: FormEvent) {
@@ -122,185 +196,20 @@ export function ManageClasses() {
     );
   }
 
-  // Runs a delete/remove, then closes its dialog and reports the result.
-  async function runAction(
-    action: () => Promise<void>,
-    success: string,
-    close: () => void,
-  ) {
-    setBusy(true);
-    setFeedback(null);
-    try {
-      await action();
-      setFeedback({ kind: "success", text: success });
-      reload();
-    } catch (error) {
-      setFeedback({
-        kind: "error",
-        text: error instanceof Error ? error.message : "The request failed.",
-      });
-    } finally {
-      setBusy(false);
-      close();
-    }
-  }
+  const openClass = classes?.find((item) => item.classId === openClassId) ?? null;
 
-  return (
-    <div className="space-y-2 sm:space-y-3">
-      {feedback ? (
-        <p
-          role={feedback.kind === "error" ? "alert" : "status"}
-          className={`border-2 p-3 text-sm ${
-            feedback.kind === "error"
-              ? "border-danger-dark bg-danger-surface text-danger-dark"
-              : "border-primary-dark bg-primary/15 text-ink"
-          }`}
-        >
-          {feedback.text}
-        </p>
-      ) : null}
+  const inAnyClass = new Set(
+    (classes ?? []).flatMap((item) => item.students.map((s) => s.userId)),
+  );
+  const unassigned = suggestions.filter((s) => !inAnyClass.has(s.userId));
 
-      <form onSubmit={submitNew} aria-label="Create a class">
-        <PixelCard>
-        <label htmlFor="new-class-name" className="text-sm font-semibold">
-          New class
-        </label>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-          <PixelInput
-            id="new-class-name"
-            value={name}
-            maxLength={MAX_CLASS_NAME}
-            placeholder="e.g. Grade 7 - Rizal"
-            autoComplete="off"
-            onChange={(event) => setName(event.target.value)}
-          />
-          <PixelButton type="submit" disabled={creating || !name.trim()}>
-            {creating ? "Creating..." : "Create class"}
-          </PixelButton>
-        </div>
-        </PixelCard>
-      </form>
-
-      {loadError && classes === null ? (
-        <div role="alert" className="border-2 border-danger-dark bg-danger-surface p-3 text-sm text-danger-dark">
-          <p>{loadError}</p>
-          <PixelButton type="button" size="sm" className="mt-2" onClick={reload}>
-            Try again
-          </PixelButton>
-        </div>
-      ) : classes === null ? (
-        <p role="status" className="text-sm text-px-muted">
-          Loading classes...
-        </p>
-      ) : classes.length === 0 ? (
-        <PixelCard>
-          <p className="text-sm">
-            You have no classes yet. Create one above, add your students, then
-            send a quiz to it from the app.
-          </p>
-        </PixelCard>
-      ) : (
-        <ul className="space-y-2 sm:space-y-3">
-          {classes.map((item) => {
-            const open = expanded.has(item.classId);
-            const panelId = `class-students-${item.classId}`;
-
-            return (
-              <li key={item.classId}>
-                <PixelCard>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold">{item.name}</h3>
-                      <PixelBadge>{plural(item.students.length, "student")}</PixelBadge>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <PixelButton
-                        type="button"
-                        size="sm"
-                        variant="neutral"
-                        aria-expanded={open}
-                        aria-controls={panelId}
-                        onClick={() => toggleExpanded(item.classId)}
-                      >
-                        {open ? "Hide students" : "Show students"}
-                      </PixelButton>
-                      <PixelButton
-                        type="button"
-                        size="sm"
-                        variant="accent"
-                        aria-label={`Add students to ${item.name}`}
-                        onClick={() => setAddTarget(item)}
-                      >
-                        Add students
-                      </PixelButton>
-                      <PixelButton
-                        type="button"
-                        size="sm"
-                        variant="neutral"
-                        aria-label={`Rename class ${item.name}`}
-                        onClick={() => {
-                          setRenameText(item.name);
-                          setRenameTarget(item);
-                        }}
-                      >
-                        Rename
-                      </PixelButton>
-                      <PixelButton
-                        type="button"
-                        size="sm"
-                        variant="danger"
-                        aria-label={`Delete class ${item.name}`}
-                        onClick={() => setDeleteTarget(item)}
-                      >
-                        Delete
-                      </PixelButton>
-                    </div>
-                  </div>
-
-                  {open ? (
-                    <div id={panelId} className="mt-3">
-                      {item.students.length === 0 ? (
-                        <p className="text-sm text-px-muted">
-                          No students in this class yet.
-                        </p>
-                      ) : (
-                        <ul className="divide-y-2 divide-ink/20 border-2 border-ink text-sm">
-                          {item.students.map((student) => (
-                            <li
-                              key={student.userId}
-                              className="flex items-center justify-between gap-2 px-3 py-1.5"
-                            >
-                              <span className="break-all">{student.username}</span>
-                              <PixelButton
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                aria-label={`Remove ${student.username} from ${item.name}`}
-                                onClick={() =>
-                                  setRemoveTarget({ classItem: item, student })
-                                }
-                              >
-                                Remove
-                              </PixelButton>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : null}
-                </PixelCard>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
+  const dialogs = (
+    <>
       {addTarget ? (
         <AddStudentsModal
           target={addTarget}
           onClose={() => setAddTarget(null)}
           onAdded={(added) => {
-            setExpanded((current) => new Set(current).add(addTarget.classId));
             setFeedback({
               kind: "success",
               text:
@@ -311,6 +220,23 @@ export function ManageClasses() {
             setAddTarget(null);
             reload();
           }}
+        />
+      ) : null}
+
+      {newStudentTarget ? (
+        <CreateStudentModal
+          target={newStudentTarget}
+          onClose={() => setNewStudentTarget(null)}
+          onCreated={reload}
+        />
+      ) : null}
+
+      {viewTarget ? (
+        <StudentQuizzesModal
+          key={viewTarget.userId}
+          studentId={viewTarget.userId}
+          username={viewTarget.username}
+          onClose={() => setViewTarget(null)}
         />
       ) : null}
 
@@ -359,9 +285,15 @@ export function ManageClasses() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
+          const target = deleteTarget;
           void runAction(
-            () => deleteClass(deleteTarget.classId),
-            `Class "${deleteTarget.name}" deleted.`,
+            async () => {
+              await deleteClass(target.classId);
+              if (target.classId === openClassId) {
+                pushHref(classesHref());
+              }
+            },
+            `Class "${target.name}" deleted.`,
             () => setDeleteTarget(null),
           );
         }}
@@ -370,12 +302,12 @@ export function ManageClasses() {
       <ConfirmDialog
         open={removeTarget !== null}
         title="Remove student"
-        message={`Remove ${removeTarget?.student.username ?? ""} from "${removeTarget?.classItem.name ?? ""}"? They stop seeing quizzes that were sent only to this class.`}
+        message={`Remove ${removeTarget?.student.username ?? ""} from "${removeTarget?.classItem?.name ?? ""}"? They stop seeing quizzes that were sent only to this class. Their account stays.`}
         confirmLabel="Remove student"
         pending={busy}
         onCancel={() => setRemoveTarget(null)}
         onConfirm={() => {
-          if (!removeTarget) return;
+          if (!removeTarget?.classItem) return;
           const { classItem, student } = removeTarget;
           void runAction(
             () => removeStudent(classItem.classId, student.userId),
@@ -384,6 +316,244 @@ export function ManageClasses() {
           );
         }}
       />
+
+      <ConfirmDialog
+        open={accountTarget !== null}
+        title="Delete student account"
+        message={`Delete the account of ${accountTarget?.student.username ?? ""}? It is permanently removed and cannot be restored. Their saved quiz results stay on record.`}
+        confirmLabel="Delete account"
+        pending={busy}
+        onCancel={() => setAccountTarget(null)}
+        onConfirm={() => {
+          if (!accountTarget) return;
+          const { student } = accountTarget;
+          void runAction(
+            () => deleteStudentAccount(student.userId),
+            `${student.username}'s account was deleted.`,
+            () => setAccountTarget(null),
+          );
+        }}
+      />
+    </>
+  );
+
+  const feedbackNote = feedback ? (
+    <p
+      role={feedback.kind === "error" ? "alert" : "status"}
+      className={`border-2 p-3 text-sm ${
+        feedback.kind === "error"
+          ? "border-danger-dark bg-danger-surface text-danger-dark"
+          : "border-primary-dark bg-primary/15 text-ink"
+      }`}
+    >
+      {feedback.text}
+    </p>
+  ) : null;
+
+  if (loadError && classes === null) {
+    return (
+      <div
+        role="alert"
+        className="border-2 border-danger-dark bg-danger-surface p-3 text-sm text-danger-dark"
+      >
+        <p>{loadError}</p>
+        <PixelButton type="button" size="sm" className="mt-2" onClick={reload}>
+          Try again
+        </PixelButton>
+      </div>
+    );
+  }
+
+  if (classes === null) {
+    return (
+      <p role="status" className="text-sm text-px-muted">
+        Loading classes...
+      </p>
+    );
+  }
+
+  if (openClass) {
+    const actions: ClassDetailActions = {
+      onBack: () => pushHref(classesHref()),
+      onTab: (next) =>
+        pushHref(classesHref(openClass.classId, next === "students" ? null : next)),
+      onAddStudents: () => setAddTarget(openClass),
+      onCreateStudent: () => setNewStudentTarget(openClass),
+      onRename: () => {
+        setRenameText(openClass.name);
+        setRenameTarget(openClass);
+      },
+      onDelete: () => setDeleteTarget(openClass),
+      onViewStudent: setViewTarget,
+      onRemoveStudent: (student) =>
+        setRemoveTarget({ classItem: openClass, student }),
+      onDeleteAccount: (student) =>
+        setAccountTarget({ classItem: openClass, student }),
+      onOpenQuiz,
+    };
+
+    return (
+      <div className="space-y-2 sm:space-y-3">
+        {feedbackNote}
+        <ClassDetail
+          classItem={openClass}
+          view={classViews.find((item) => item.classId === openClass.classId)}
+          tab={tab}
+          actions={actions}
+        />
+        {dialogs}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 sm:space-y-3">
+      {feedbackNote}
+
+      <form onSubmit={submitNew} aria-label="Create a class">
+        <PixelCard>
+          <label htmlFor="new-class-name" className="text-sm font-semibold">
+            New class
+          </label>
+          <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+            <PixelInput
+              id="new-class-name"
+              value={name}
+              maxLength={MAX_CLASS_NAME}
+              placeholder="e.g. Grade 7 - Rizal"
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+            />
+            <PixelButton type="submit" disabled={creating || !name.trim()}>
+              {creating ? "Creating..." : "Create class"}
+            </PixelButton>
+          </div>
+        </PixelCard>
+      </form>
+
+      {classes.length === 0 ? (
+        <PixelCard>
+          <p className="text-sm">
+            You have no classes yet. Create one above, then add or create your
+            students inside it.
+          </p>
+        </PixelCard>
+      ) : (
+        <ul className="space-y-2 sm:space-y-3">
+          {classes.map((item) => {
+            const view = classViews.find((v) => v.classId === item.classId);
+            const waiting = (view?.quizProgress ?? []).filter(
+              (quiz) => quiz.notTaken.length > 0,
+            ).length;
+
+            return (
+              <li key={item.classId}>
+                <PixelCard>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <h3 className="break-words font-bold">{item.name}</h3>
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm">
+                        <PixelBadge>{plural(item.students.length, "student")}</PixelBadge>
+                        {view && view.results.total > 0 ? (
+                          <span>Average {view.results.average}%</span>
+                        ) : (
+                          <span className="text-neutral-600">No scores yet</span>
+                        )}
+                        {waiting > 0 ? (
+                          <PixelBadge variant="warning">
+                            {plural(waiting, "quiz")} waiting on students
+                          </PixelBadge>
+                        ) : null}
+                      </div>
+                    </div>
+                    <PixelButton
+                      type="button"
+                      size="sm"
+                      aria-label={`Open ${item.name}`}
+                      onClick={() => pushHref(classesHref(item.classId))}
+                      className="w-full sm:w-auto"
+                    >
+                      Open
+                    </PixelButton>
+                  </div>
+                </PixelCard>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {unassigned.length > 0 ? (
+        <PixelCard className="space-y-2">
+          <div>
+            <h3 className="font-bold">Not in a class yet</h3>
+            <p className="text-xs text-neutral-600 sm:text-sm">
+              Student accounts that are not in any of your classes.
+            </p>
+          </div>
+          <ul className="divide-y-2 divide-ink/20 border-2 border-ink text-sm">
+            {unassigned.map((student) => (
+              <li
+                key={student.userId}
+                className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="break-all font-semibold">{student.username}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {classes.length > 0 ? (
+                    <select
+                      aria-label={`Add ${student.username} to a class`}
+                      value=""
+                      disabled={busy}
+                      onChange={(event) => {
+                        const target = classes.find(
+                          (item) => item.classId === event.target.value,
+                        );
+                        if (!target) return;
+                        void runAction(
+                          async () => {
+                            await addStudents(target.classId, [student.username]);
+                          },
+                          `${student.username} added to ${target.name}.`,
+                          () => undefined,
+                        );
+                      }}
+                      className="h-8 min-w-0 flex-1 px-2 text-xs sm:flex-none"
+                    >
+                      <option value="">Add to class…</option>
+                      {classes.map((item) => (
+                        <option key={item.classId} value={item.classId}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  <PixelButton
+                    type="button"
+                    size="sm"
+                    aria-label={`View quizzes taken by ${student.username}`}
+                    onClick={() => setViewTarget(student)}
+                  >
+                    View
+                  </PixelButton>
+                  <PixelButton
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    aria-label={`Delete the account of ${student.username}`}
+                    onClick={() =>
+                      setAccountTarget({ classItem: null, student })
+                    }
+                  >
+                    Delete account
+                  </PixelButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </PixelCard>
+      ) : null}
+
+      {dialogs}
     </div>
   );
 }

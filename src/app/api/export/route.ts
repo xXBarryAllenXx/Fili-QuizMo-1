@@ -9,6 +9,7 @@ import {
   createAccountRoleLookup,
   resolveAccountAccess,
 } from "@/lib/auth/roles";
+import { resolveClassUsernames } from "@/lib/search/class-scope";
 import { SearchError, isSearchError } from "@/lib/search/errors";
 import { buildSearchPlan } from "@/lib/search/query-builder";
 import { SupabaseSearchRepository } from "@/lib/search/supabase-repository";
@@ -215,7 +216,8 @@ export async function GET(request: Request): Promise<Response> {
     const query = parseSearchQuery(url.searchParams, context.role);
     const pageLimit = format === "check" ? 1 : BATCH_SIZE;
     const exportQuery = { ...query, page: 1, pageSize: pageLimit };
-    const plan = buildSearchPlan(exportQuery, context);
+    const classUsernames = await resolveClassUsernames(query.class);
+    const plan = buildSearchPlan(exportQuery, context, classUsernames);
     plan.range = { from: 0, to: pageLimit - 1 };
 
     const repository = new SupabaseSearchRepository(supabase);

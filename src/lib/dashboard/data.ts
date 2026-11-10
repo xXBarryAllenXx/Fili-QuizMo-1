@@ -127,6 +127,8 @@ export type TeacherDashboardData = {
   leaderboards: LeaderboardData;
   /** One entry per class, empty when classes are not available. */
   classViews: ClassDashboardView[];
+  /** False when the quiz server could not be reached, so classes are unknown. */
+  classesAvailable: boolean;
   /** Where each quiz was sent, by quiz id. Quizzes sent nowhere are absent. */
   assignedTo: Record<string, QuizSentTo>;
   /** Latest finished attempts on this teacher's quizzes (newest first). */
@@ -180,6 +182,8 @@ const RESULT_LIMIT = 1_000;
 const ROSTER_LIMIT = 5_000;
 // PostgREST puts .in() values in the URL, so long id lists are sent in chunks.
 const SESSION_CHUNK = 50;
+// A class ranking lists the whole class, not just a top 10.
+const CLASS_LEADERBOARD_LIMIT = 100;
 
 function readNumber(value: number | string): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -864,7 +868,7 @@ export function buildClassViews(
       quizProgress,
       results: resultSummary(rows),
       distributions: quizDistributions(rows),
-      leaderboards: buildLeaderboards(rows),
+      leaderboards: buildLeaderboards(rows, CLASS_LEADERBOARD_LIMIT),
     };
   });
 }
@@ -943,10 +947,12 @@ export async function loadTeacherDashboardData(
     loadRosterForSessions(supabase, sessionIds),
   ]);
 
-  const [teacherClasses, teacherAssignments] = await Promise.all([
+  const [loadedClasses, loadedAssignments] = await Promise.all([
     classes ?? null,
     assignments ?? null,
-  ]).then(([c, a]) => [c ?? [], a ?? []] as const);
+  ]);
+  const teacherClasses = loadedClasses ?? [];
+  const teacherAssignments = loadedAssignments ?? [];
   const titles = new Map(
     quizzes.map((quiz) => [quiz.session_id, quiz.title ?? "Untitled quiz"]),
   );
@@ -959,6 +965,7 @@ export async function loadTeacherDashboardData(
       teacherAssignments,
       titles,
     ),
+    classesAvailable: loadedClasses !== null,
     assignedTo: buildAssignedTo(teacherClasses, teacherAssignments),
     assessmentAttempts: attemptList(results),
     quizzes: quizSummary(quizzes),

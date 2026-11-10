@@ -333,7 +333,7 @@ export function DashboardShell({
         <main className="mx-auto w-full max-w-5xl flex-1 p-3 sm:p-4">
           {role !== "Student" &&
           ((role === "Teacher" &&
-            ["quizzes", "students", "scores"].includes(activeKey)) ||
+            ["classes", "quizzes"].includes(activeKey)) ||
             (role === "Admin" &&
               [
                 "quizzes",
