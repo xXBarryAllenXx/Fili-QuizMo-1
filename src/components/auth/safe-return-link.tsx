@@ -4,6 +4,7 @@ import { IN_APP_NAV_KEY } from "@/components/layout/nav-tracker";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { ActionIcon } from "@/components/ui/action-icon";
 import { useNavigation } from "@/components/pixel";
 import { createAccountRoleLookup, resolveAccountAccess } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
@@ -131,7 +132,7 @@ export function SafeReturnLink({
         // pixel shadow and press animation. Gold text, white while pressed.
         className="pixel-button inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold text-accent! active:text-white! [--pixel-button-bg:var(--color-ink)]"
       >
-        {isBusy ? <Spinner className="h-4 w-4" /> : null}
+        {isBusy ? <Spinner className="h-4 w-4" /> : <ActionIcon name="ArrowLeft" />}
         {isBusy ? "Loading..." : label}
       </button>
       {errorMessage ? (

@@ -323,7 +323,7 @@ export function SettingsPasswordForm({
           </p>
         ) : null}
 
-        <Button type="submit" aria-busy={isLoading} disabled={isLoading}>
+        <Button type="submit" aria-busy={isLoading} disabled={isLoading} icon={isLoading ? undefined : "KeyRound"}>
           {isLoading ? (
             <span className="inline-flex items-center gap-2">
               <Spinner className="h-4 w-4" />

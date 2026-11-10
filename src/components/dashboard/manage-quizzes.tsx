@@ -8,6 +8,7 @@ import {
   PixelButton,
   PixelCard,
   PixelInput,
+  Trash2,
 } from "@/components/ui/pixel-primitives";
 import { PixelModal } from "@/components/ui/pixel-modal";
 import { getStatusLabel } from "@/lib/search/config";
@@ -15,6 +16,8 @@ import type { QuizSentTo } from "@/lib/dashboard/data";
 import type { SearchItem, SearchRole } from "@/lib/search/types";
 
 type QuizItem = Extract<SearchItem, { entity: "quizzes" }>;
+
+const QUIZ_ACTION_BUTTON = "min-h-8! gap-1.5! px-2! py-1! text-[9px]!";
 
 function isQuiz(item: SearchItem): item is QuizItem {
   return item.entity === "quizzes";
@@ -81,7 +84,7 @@ export function ManageQuizzesTable({
   /** Where each quiz was sent, by quiz id (teacher dashboard only). */
   assignedTo?: Readonly<Record<string, QuizSentTo>>;
   /** Adds a Results button that opens the quiz's scores (teacher dashboard). */
-  onOpenResults?: (title: string) => void;
+  onOpenResults?: (quizId: string, title: string) => void;
 }) {
   const router = useRouter();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -168,11 +171,55 @@ export function ManageQuizzesTable({
         renderCard={(item) =>
           isQuiz(item) ? (
             <PixelCard className="space-y-2 p-3!">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="min-w-0 break-words font-bold">{item.title}</h3>
-                <PixelBadge variant={statusVariant(item.status)}>
-                  {getStatusLabel("quizzes", item.status)}
-                </PixelBadge>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-[1_1_16rem] flex-wrap items-center gap-2">
+                  <h3 className="min-w-0 break-words font-bold">{item.title}</h3>
+                  <PixelBadge variant={statusVariant(item.status)}>
+                    {getStatusLabel("quizzes", item.status)}
+                  </PixelBadge>
+                </div>
+                <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5">
+                  {onOpenResults ? (
+                    <PixelButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      className={QUIZ_ACTION_BUTTON}
+                      aria-label={`Results for ${item.title}`}
+                      onClick={() => onOpenResults(item.id, item.title)}
+                    >
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <path d="M3 3v16a2 2 0 0 0 2 2h16M18 17V9M13 17V5M8 17v-3" />
+                      </svg>
+                      Results
+                    </PixelButton>
+                  ) : null}
+                  <PixelButton
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    className={QUIZ_ACTION_BUTTON}
+                    aria-label={`View ${item.title}`}
+                    onClick={() => setViewTarget(item)}
+                  >
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    View
+                  </PixelButton>
+                  <PixelButton
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    className={QUIZ_ACTION_BUTTON}
+                    aria-label={`Delete ${item.title}`}
+                    onClick={() => setDeleteTarget(item)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </PixelButton>
+                </div>
               </div>
               <p className="break-words text-xs text-neutral-700 sm:text-sm">
                 {item.questionCount}{" "}
@@ -182,38 +229,6 @@ export function ManageQuizzesTable({
                   ? ` · ${item.teacherUsername}`
                   : ""}
               </p>
-              {/* The buttons share the row and wrap rather than overflow. */}
-              <div className="flex flex-wrap gap-1.5 sm:gap-2 [&>button]:min-w-20 [&>button]:flex-1 sm:[&>button]:flex-none">
-                {onOpenResults ? (
-                  <PixelButton
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    aria-label={`Results for ${item.title}`}
-                    onClick={() => onOpenResults(item.title)}
-                  >
-                    Results
-                  </PixelButton>
-                ) : null}
-                <PixelButton
-                  type="button"
-                  variant="accent"
-                  size="sm"
-                  aria-label={`View ${item.title}`}
-                  onClick={() => setViewTarget(item)}
-                >
-                  View
-                </PixelButton>
-                <PixelButton
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  aria-label={`Delete ${item.title}`}
-                  onClick={() => setDeleteTarget(item)}
-                >
-                  Delete
-                </PixelButton>
-              </div>
             </PixelCard>
           ) : null
         }
@@ -270,6 +285,7 @@ export function ManageQuizzesTable({
               type="button"
               variant="neutral"
               onClick={() => setViewTarget(null)}
+              icon="X"
             >
               Close
             </PixelButton>
@@ -318,6 +334,7 @@ export function ManageQuizzesTable({
                 variant="danger"
                 onClick={closeDeleteDialog}
                 disabled={deleting}
+                icon="X"
               >
                 Cancel
               </PixelButton>
@@ -325,6 +342,7 @@ export function ManageQuizzesTable({
                 type="submit"
                 variant="primary"
                 disabled={!confirmReady || deleting}
+                icon="Check"
               >
                 {deleting ? "Deleting..." : "Confirm Delete"}
               </PixelButton>

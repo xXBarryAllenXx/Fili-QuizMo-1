@@ -165,6 +165,7 @@ export function TeacherApprovalList({
                             void updateStatus(teacher.id, action.status)
                           }
                           className="px-3 py-1.5 text-xs"
+                          icon={busy ? undefined : action.status === "approved" ? "Check" : action.status === "suspended" ? "Ban" : "X"}
                         >
                           {busy ? "Saving..." : action.label}
                         </Button>

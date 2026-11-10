@@ -51,6 +51,7 @@ export function PerformanceNotices({
                 variant="neutral"
                 className="shrink-0 whitespace-nowrap"
                 onClick={() => onAction(notice)}
+                icon="ClipboardCheck"
               >
                 {actionLabel}
               </PixelButton>

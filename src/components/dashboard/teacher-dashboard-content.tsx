@@ -61,7 +61,11 @@ function currentHref(
     case "classes":
       return classesHref(params.get("class"), params.get("tab"));
     case "quizzes":
-      return quizzesHref(params.get("quiz"), params.get("attempt"));
+      return quizzesHref(
+        params.get("quizId"),
+        params.get("attempt"),
+        params.get("quiz"),
+      );
     default:
       return teacherSectionHref(key);
   }
@@ -109,7 +113,7 @@ export default function TeacherDashboardContent({
   function attemptHref(attemptId: string | null): string {
     const attempt = data.assessmentAttempts.find((item) => item.id === attemptId);
 
-    return quizzesHref(attempt?.quizTitle ?? null, attemptId);
+    return quizzesHref(attempt?.quizId || null, attemptId, attempt?.quizTitle ?? null);
   }
 
   function navigateToSection(key: string) {
@@ -173,7 +177,7 @@ export default function TeacherDashboardContent({
           />
           <ManageClasses
             classViews={data.classViews}
-            onOpenQuiz={(title) => go(quizzesHref(title))}
+            onOpenQuiz={(quizId, title) => go(quizzesHref(quizId, null, title))}
           />
         </div>
       )}
@@ -191,10 +195,15 @@ function QuizzesSection({ data }: { data: TeacherDashboardData }) {
   const { searchParams, pushHref } = useUrlParams();
   const attemptId = searchParams.get("attempt");
   const attempt = data.assessmentAttempts.find((item) => item.id === attemptId);
-  const title = searchParams.get("quiz") ?? attempt?.quizTitle ?? null;
+  // The quiz is identified by its unique id; the title is display-only.
+  const quizId = searchParams.get("quizId") || attempt?.quizId || null;
+  const title =
+    searchParams.get("quiz") ||
+    data.assessmentAttempts.find((item) => item.quizId === quizId)?.quizTitle ||
+    "Quiz";
 
   // An attempt that is not in the loaded list still opens (its page loads it).
-  if (attemptId && !title) {
+  if (attemptId && !quizId) {
     return (
       <TeacherAssessmentSection
         attempts={data.assessmentAttempts}
@@ -205,15 +214,17 @@ function QuizzesSection({ data }: { data: TeacherDashboardData }) {
     );
   }
 
-  if (title) {
+  if (quizId) {
     return (
       <QuizResults
+        key={quizId}
+        quizId={quizId}
         title={title}
         attempts={data.assessmentAttempts}
         attemptId={attemptId}
         onBack={() => pushHref(quizzesHref())}
-        onSelectAttempt={(id) => pushHref(quizzesHref(title, id))}
-        onBackToQuiz={() => pushHref(quizzesHref(title))}
+        onSelectAttempt={(id) => pushHref(quizzesHref(quizId, id, title))}
+        onBackToQuiz={() => pushHref(quizzesHref(quizId, null, title))}
       />
     );
   }
@@ -235,7 +246,9 @@ function QuizzesSection({ data }: { data: TeacherDashboardData }) {
       <ManageQuizzesTable
         actorRole="teacher"
         assignedTo={data.assignedTo}
-        onOpenResults={(quizTitle) => pushHref(quizzesHref(quizTitle))}
+        onOpenResults={(quizId, quizTitle) =>
+          pushHref(quizzesHref(quizId, null, quizTitle))
+        }
       />
     </div>
   );

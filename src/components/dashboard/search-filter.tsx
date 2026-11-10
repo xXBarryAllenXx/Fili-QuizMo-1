@@ -14,6 +14,7 @@ import {
   defaultSearchQuery,
   serializeSearchState,
 } from "@/lib/search/url-state";
+import { submittedQueryFor } from "@/lib/search/submit-search";
 import { useSearchFilters } from "@/lib/search/use-search-filters";
 import type {
   SearchEntity,
@@ -23,6 +24,7 @@ import type {
   SearchRole,
 } from "@/lib/search/types";
 import { PixelLoader } from "@/components/ui/pixel-loader";
+import { ActionIcon } from "@/components/ui/action-icon";
 import {
   PixelBadge,
   PixelButton,
@@ -61,7 +63,14 @@ type LoadedPages = {
 
 export type ClassFilterOption = { id: string; name: string };
 
-function DebouncedTextInput({
+/**
+ * A text field that keeps what is being typed (the draft) apart from the
+ * submitted value. Typing only updates the draft; the search runs when Enter is
+ * pressed. `value` is the submitted value: when it changes from outside (a
+ * removed filter chip, "Clear all", an old link) the draft follows it. The input
+ * is never remounted or disabled, so it keeps focus while results load.
+ */
+function SubmitTextInput({
   id,
   value,
   placeholder,
@@ -69,41 +78,32 @@ function DebouncedTextInput({
   type = "text",
   describedBy,
   className = "mt-1 h-10 w-full px-3 text-sm md:h-9",
-  onValueChange,
+  onSubmit,
 }: {
   id: string;
+  /** The submitted value. */
   value: string;
   placeholder?: string;
   maxLength?: number;
   type?: "search" | "text";
   describedBy?: string;
   className?: string;
-  onValueChange: (value: string) => void;
+  onSubmit: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
-  const callbackRef = useRef(onValueChange);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    callbackRef.current = onValueChange;
-  }, [onValueChange]);
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setDraft(value);
+  }
 
   useEffect(() => {
     function clearDraft() {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
       setDraft("");
     }
 
     window.addEventListener(SESSION_ENDED_EVENT, clearDraft);
-    return () => {
-      window.removeEventListener(SESSION_ENDED_EVENT, clearDraft);
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, clearDraft);
   }, []);
 
   return (
@@ -114,16 +114,17 @@ function DebouncedTextInput({
       maxLength={maxLength}
       placeholder={placeholder}
       aria-describedby={describedBy}
-      onChange={(event) => {
-        const nextValue = event.currentTarget.value;
-        setDraft(nextValue);
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-        }
-        timeoutRef.current = window.setTimeout(
-          () => callbackRef.current(nextValue),
-          300,
+      enterKeyHint="search"
+      onChange={(event) => setDraft(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.preventDefault();
+        const submitted = submittedQueryFor(
+          event.key,
+          event.nativeEvent.isComposing,
+          draft,
+          value,
         );
+        if (submitted !== null) onSubmit(submitted);
       }}
       className={className}
     />
@@ -319,13 +320,12 @@ function FilterFields({
     return (
       <label key={key} htmlFor={id} className="block text-xs font-medium sm:text-sm">
         {definition.label}
-        <DebouncedTextInput
-          key={`${key}-${value}`}
+        <SubmitTextInput
           id={id}
           value={value}
           maxLength={definition.maxLength}
           placeholder={definition.placeholder}
-          onValueChange={(nextValue) => {
+          onSubmit={(nextValue) => {
             if (key === "teacher") {
               updateQuery({ teacher: nextValue });
             } else if (key === "quiz") {
@@ -531,15 +531,14 @@ export function SearchFilter({
             Search {config.pluralLabel.toLowerCase()}
           </label>
           <div className="min-w-0 flex-1 sm:max-w-80">
-            <DebouncedTextInput
-              key={`q-${query.q}`}
+            <SubmitTextInput
               id={`${entity}-search`}
               type="search"
               value={query.q}
               maxLength={200}
               placeholder="Search"
               className="h-9 w-full px-3 text-sm"
-              onValueChange={(value) => updateQuery({ q: value })}
+              onSubmit={(value) => updateQuery({ q: value })}
             />
           </div>
 
@@ -552,19 +551,8 @@ export function SearchFilter({
             onClick={() => setFiltersOpen((open) => !open)}
             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
           >
+            <ActionIcon name="ListFilter" size={14} />
             Filters{filterCount > 0 ? ` (${filterCount})` : ""}
-            {/* A solid pixel arrow: points down when closed, up when open. */}
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              shapeRendering="crispEdges"
-              aria-hidden="true"
-              className={`h-4 w-4 shrink-0 ${filtersOpen ? "rotate-180" : ""}`}
-            >
-              <path d="M1 4h14v3H1zM3 7h10v3H3zM5 10h6v3H5zM7 13h2v1H7z" />
-            </svg>
           </PixelButton>
 
           {toolbar ? (
@@ -602,15 +590,16 @@ export function SearchFilter({
                 onClick={() => removeFilter(chip.key)}
                 className="font-bold"
               >
-                ×
+                <ActionIcon name="X" size={14} />
               </button>
             </PixelBadge>
           ))}
           <button
             type="button"
             onClick={clearAllFilters}
-            className="px-1 text-sm font-semibold text-ink underline"
+            className="inline-flex items-center gap-1.5 px-1 text-sm font-semibold text-ink underline"
           >
+            <ActionIcon name="RotateCcw" size={14} />
             Clear all
           </button>
         </div>
@@ -647,7 +636,7 @@ export function SearchFilter({
         >
           {cardItems.length === 0 ? (
             <p className="border-2 border-dashed border-ink p-4 text-center text-sm">
-              No results match your filters.
+              No results found.
             </p>
           ) : (
             <ul aria-label={`${config.pluralLabel} search results`} className="space-y-2">
@@ -666,6 +655,7 @@ export function SearchFilter({
                   variant="neutral"
                   size="sm"
                   onClick={() => updateQuery({ page: lastLoadedPage + 1 })}
+                  icon="ArrowRight"
                 >
                   Load more
                 </PixelButton>
@@ -716,7 +706,7 @@ export function SearchFilter({
           page={visiblePagination?.page ?? 1}
           totalPages={visiblePagination?.totalPages ?? 1}
           onPageChange={(page) => updateQuery({ page }, true)}
-          emptyMessage="No results match your filters."
+          emptyMessage="No results found."
         />
         </div>
       ) : null}

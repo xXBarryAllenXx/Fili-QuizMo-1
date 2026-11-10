@@ -47,6 +47,7 @@ function NavbarRouteButton({
       type="button"
       size="sm"
       variant="primary"
+      icon={!isPending && variant !== "admin" ? variant === "home" ? "House" : "LogIn" : undefined}
       onClick={handleClick}
       disabled={isPending}
       aria-disabled={isPending}

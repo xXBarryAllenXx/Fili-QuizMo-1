@@ -165,7 +165,7 @@ export function InstallGuide({ apkHref }: { apkHref: string }) {
         </ol>
 
         <div className="mt-6 flex flex-col items-center gap-3 text-center">
-          <ButtonLink href={apkHref} download variant="primary">
+          <ButtonLink href={apkHref} download variant="primary" icon="Download">
             Download APK
           </ButtonLink>
         </div>

@@ -121,7 +121,7 @@ export function TeacherOverview({
             Create a class and add your students to it. Quizzes you send to the
             class, and how each student does, show up here.
           </p>
-          <PixelButton type="button" size="sm" onClick={onGoToClasses}>
+          <PixelButton type="button" size="sm" onClick={onGoToClasses} icon="UsersRound">
             Go to Classes
           </PixelButton>
         </PixelCard>
@@ -167,6 +167,7 @@ export function TeacherOverview({
                     aria-label={`Open ${item.className} quizzes`}
                     className="self-start sm:self-auto"
                     onClick={() => onOpenClass(item.classId, "quizzes")}
+                    icon="UsersRound"
                   >
                     Open class
                   </PixelButton>
@@ -194,7 +195,7 @@ export function TeacherOverview({
             {recent.map((attempt) => (
               <li
                 key={attempt.id}
-                className="flex items-center justify-between gap-2 border-2 border-ink/30 p-2"
+                className="grid grid-cols-1 items-start gap-2 border-2 border-ink/30 p-3 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
               >
                 <div className="min-w-0">
                   <p className="break-words text-sm font-semibold">
@@ -204,8 +205,8 @@ export function TeacherOverview({
                     {attempt.quizTitle} · {formatDate(attempt.completedAt)}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <PixelBadge variant={scoreVariant(attempt.percentage)}>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <PixelBadge className="min-w-16 whitespace-nowrap" variant={scoreVariant(attempt.percentage)}>
                     {formatRawScore(attempt.correct, attempt.total) ??
                       `${Math.round(attempt.percentage)}%`}
                   </PixelBadge>
@@ -215,6 +216,7 @@ export function TeacherOverview({
                     variant="neutral"
                     aria-label={`Review ${attempt.student}'s answers on ${attempt.quizTitle}`}
                     onClick={() => onOpenAttempt(attempt.id)}
+                    icon="ClipboardCheck"
                   >
                     Review
                   </PixelButton>

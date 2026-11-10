@@ -166,7 +166,7 @@ export function CompleteProfileForm({
         </p>
       ) : null}
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" className="w-full" disabled={isLoading} icon={isLoading ? undefined : "Check"}>
         {isLoading ? (
           <span className="inline-flex items-center gap-2">
             <Spinner className="h-4 w-4" />

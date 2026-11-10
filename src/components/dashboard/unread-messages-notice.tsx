@@ -106,6 +106,7 @@ export function UnreadMessagesNotice({
         variant="primary"
         className="shrink-0 whitespace-nowrap"
         onClick={() => onOpen(notice.attemptId)}
+        icon="MessageSquare"
       >
         Read
       </PixelButton>

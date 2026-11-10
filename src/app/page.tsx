@@ -125,6 +125,7 @@ export default function Home() {
                     href="/signup"
                     variant="neutral"
                     className="sm:flex-1"
+                    icon="UserPlus"
                   >
                     Create an Account
                   </ButtonLink>
@@ -133,6 +134,7 @@ export default function Home() {
                     download
                     variant="primary"
                     className="sm:flex-1"
+                    icon="Download"
                   >
                     Download APK
                   </ButtonLink>
@@ -227,7 +229,7 @@ export default function Home() {
                   quizzes and student progress.
                 </p>
               </div>
-              <ButtonLink href="/signup" className="mt-6 w-full sm:w-auto">
+              <ButtonLink href="/signup" className="mt-6 w-full sm:w-auto" icon="UserPlus">
                 Create an Account
               </ButtonLink>
             </div>
@@ -414,10 +416,10 @@ export default function Home() {
               and making learning feel a little more like play.
             </Bubble>
             <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
-              <ButtonLink href="/signup" variant="neutral">
+              <ButtonLink href="/signup" variant="neutral" icon="UserPlus">
                 Create an Account
               </ButtonLink>
-              <ButtonLink href={APK_HREF} download variant="primary">
+              <ButtonLink href={APK_HREF} download variant="primary" icon="Download">
                 Download APK
               </ButtonLink>
             </div>

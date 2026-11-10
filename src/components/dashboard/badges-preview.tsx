@@ -25,6 +25,7 @@ export function BadgesPreview({ onViewAll }: { onViewAll: () => void }) {
           size="sm"
           className="shrink-0 whitespace-nowrap"
           onClick={onViewAll}
+          icon="Eye"
         >
           View all
         </Button>
@@ -33,7 +34,7 @@ export function BadgesPreview({ onViewAll }: { onViewAll: () => void }) {
       {error ? (
         <PixelCard>
           <p role="alert" className="text-sm">{error}</p>
-          <PixelButton className="mt-3" onClick={retry}>Retry</PixelButton>
+          <PixelButton className="mt-3" onClick={retry} icon="RefreshCw">Retry</PixelButton>
         </PixelCard>
       ) : achievements === null ? (
         <p role="status" className="text-sm">Loading your badges...</p>

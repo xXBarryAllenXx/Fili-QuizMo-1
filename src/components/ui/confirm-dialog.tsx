@@ -43,6 +43,7 @@ export function ConfirmDialog({
           variant="neutral"
           onClick={onCancel}
           disabled={pending}
+          icon="X"
         >
           {cancelLabel}
         </PixelButton>
@@ -51,6 +52,7 @@ export function ConfirmDialog({
           variant="danger"
           onClick={onConfirm}
           disabled={pending}
+          icon={pending ? undefined : "Check"}
         >
           {pending ? "Deleting..." : confirmLabel}
         </PixelButton>

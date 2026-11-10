@@ -183,10 +183,11 @@ export function AddStudentsModal({
             variant="neutral"
             onClick={onClose}
             disabled={saving}
+            icon="X"
           >
             Cancel
           </PixelButton>
-          <PixelButton type="submit" disabled={saving}>
+          <PixelButton type="submit" disabled={saving} icon="Users">
             {saving ? "Adding..." : "Add students"}
           </PixelButton>
         </div>

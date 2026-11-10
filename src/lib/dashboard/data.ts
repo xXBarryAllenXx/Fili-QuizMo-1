@@ -32,6 +32,8 @@ export type DashboardScore = {
 /** One finished quiz attempt, for the teacher's Assessment list. */
 export type DashboardAttempt = {
   id: string;
+  /** The quiz's unique id (quiz_results.session_id). Titles are not unique. */
+  quizId: string;
   student: string;
   quizTitle: string;
   correct: number | null;
@@ -362,13 +364,14 @@ function attemptList(
   for (const row of rows) {
     if (list.length >= limit) break;
 
-    const key = `${row.participant_username.trim().toLowerCase()}\u0000${row.title}`;
+    const key = `${row.participant_username.trim().toLowerCase()}\u0000${row.session_id}`;
     const kept = perStudentQuiz.get(key) ?? 0;
     if (kept >= MAX_ATTEMPTS_PER_STUDENT_QUIZ) continue;
     perStudentQuiz.set(key, kept + 1);
 
     list.push({
       id: row.attempt_id,
+      quizId: row.session_id ?? "",
       student: row.participant_username,
       quizTitle: row.title,
       correct: readCount(row.correct_count),

@@ -5,6 +5,11 @@ import type {
   ReactNode,
 } from "react";
 import { forwardRef } from "react";
+import { ActionIcon, type ActionIconName } from "./action-icon";
+
+export function Trash2({ className = "" }: { className?: string }) {
+  return <ActionIcon name="Trash2" className={className} />;
+}
 
 export type PixelButtonVariant =
   | "primary"
@@ -18,12 +23,13 @@ export type PixelButtonVariant =
 export type PixelButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: PixelButtonVariant;
   size?: "sm" | "md";
+  icon?: ActionIconName;
 };
 
 export const pixelButtonVariants: Record<PixelButtonVariant, string> = {
   primary: "text-ink [--pixel-button-bg:var(--color-primary)] [--pixel-button-shadow:var(--color-primary-dark)]",
   accent: "text-ink [--pixel-button-bg:var(--color-accent)] [--pixel-button-shadow:var(--color-accent-dark)]",
-  danger: "text-danger-foreground [--pixel-button-bg:var(--color-danger-dark)] [--pixel-button-shadow:var(--color-danger-dark)]",
+  danger: "text-danger-foreground [--pixel-button-bg:var(--color-danger)] [--pixel-button-shadow:var(--color-danger-dark)]",
   neutral: "text-ink [--pixel-button-bg:var(--color-surface)] [--pixel-button-shadow:var(--color-neutral-dark)]",
   secondary: "text-ink [--pixel-button-bg:var(--color-accent)] [--pixel-button-shadow:var(--color-accent-dark)]",
   success: "text-ink [--pixel-button-bg:var(--color-primary)] [--pixel-button-shadow:var(--color-primary-dark)]",
@@ -37,12 +43,14 @@ export const PixelButton = forwardRef<HTMLButtonElement, PixelButtonProps>(
       size = "md",
       className = "",
       disabled,
+      icon,
+      children,
       ...props
     },
     ref,
   ) {
     const sizeStyles =
-      size === "sm" ? "h-9 px-3 text-xs" : "h-10 px-4 text-sm";
+      size === "sm" ? "min-h-12 px-3 py-2 text-[10px]" : "min-h-12 px-4 py-2 text-xs";
 
     return (
       <button
@@ -50,7 +58,10 @@ export const PixelButton = forwardRef<HTMLButtonElement, PixelButtonProps>(
         className={`pixel-button inline-flex items-center justify-center gap-2 border-2 font-semibold transition-[background-color,color,transform,box-shadow] duration-100 ease-[steps(2,end)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:transform-none ${sizeStyles} ${pixelButtonVariants[variant]} ${className}`}
         disabled={disabled}
         {...props}
-      />
+      >
+        {icon ? <ActionIcon name={icon} size={size === "sm" ? 14 : 16} /> : null}
+        {children}
+      </button>
     );
   },
 );
@@ -94,15 +105,15 @@ export function PixelBadge({
   className?: string;
 }) {
   const styles = {
-    info: "border-ink bg-sky-top text-ink",
-    success: "border-primary-dark bg-primary text-ink",
-    warning: "border-accent-dark bg-accent text-ink",
-    danger: "border-danger-dark bg-danger-surface text-danger-dark",
+    info: "bg-sky-top text-ink",
+    success: "bg-primary text-ink",
+    warning: "bg-accent text-ink",
+    danger: "bg-danger-surface text-danger-dark",
   };
 
   return (
     <span
-      className={`inline-flex items-center border-2 px-2 py-1 text-xs font-semibold ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center px-2 py-1 text-center text-xs font-semibold tabular-nums ${styles[variant]} ${className}`}
     >
       {children}
     </span>

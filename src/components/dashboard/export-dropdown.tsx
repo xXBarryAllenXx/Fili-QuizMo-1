@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
+import { ActionIcon } from "@/components/ui/action-icon";
 import { getVisibleFilterKeys } from "@/lib/search/config";
 import { SEARCH_ENTITIES, type SearchEntity, type SearchRole } from "@/lib/search/types";
 import { getExportFilename } from "@/lib/export/export-data";
@@ -342,7 +343,7 @@ function ExportPanel({
             aria-hidden="true"
             className="inline-flex h-4 w-4 shrink-0 items-center justify-center"
           >
-            {exportingFormat === "xlsx" ? <Spinner className="h-4 w-4" /> : "↓"}
+            {exportingFormat === "xlsx" ? <Spinner className="h-4 w-4" /> : <ActionIcon name="Download" />}
           </span>
           Excel
         </button>
@@ -357,7 +358,7 @@ function ExportPanel({
             aria-hidden="true"
             className="inline-flex h-4 w-4 shrink-0 items-center justify-center"
           >
-            {exportingFormat === "csv" ? <Spinner className="h-4 w-4" /> : "↓"}
+            {exportingFormat === "csv" ? <Spinner className="h-4 w-4" /> : <ActionIcon name="Download" />}
           </span>
           CSV
         </button>
@@ -384,7 +385,7 @@ function ExportPanel({
             onClick={() => setNotice("")}
             className="font-bold"
           >
-            ×
+            <ActionIcon name="X" size={14} />
           </button>
         </p>
       ) : null}

@@ -14,6 +14,14 @@ const pressStart = localFont({
   fallback: ["ui-monospace", "monospace"],
 });
 
+const notoSans = localFont({
+  src: "../../public/assets/NotoSans-Variable.ttf",
+  variable: "--font-noto-sans",
+  weight: "100 900",
+  display: "swap",
+  fallback: ["Arial", "sans-serif"],
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
@@ -46,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${pressStart.variable} h-full antialiased`}
+      className={`${pressStart.variable} ${notoSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Suspense fallback={null}>

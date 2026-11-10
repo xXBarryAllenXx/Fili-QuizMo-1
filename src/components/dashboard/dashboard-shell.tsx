@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { ActionIcon, navigationIcon } from "@/components/ui/action-icon";
 import { PixelAvatar } from "@/components/pixel/primitives";
 import { ExportDropdown } from "@/components/dashboard/export-dropdown";
 import { getSessionEpoch } from "@/lib/auth/session-state";
@@ -208,6 +209,7 @@ export function DashboardShell({
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => handleNavigate(item.key)}
                 className="w-full justify-start text-left"
+                icon={navigationIcon(item.key)}
               >
                 {item.label}
               </Button>
@@ -276,12 +278,13 @@ export function DashboardShell({
                   title={item.shortLabel ? item.label : undefined}
                   aria-label={item.shortLabel ? item.label : undefined}
                   onClick={() => handleNavigate(item.key)}
-                  className={`shrink-0 whitespace-nowrap border-2 px-1.5 py-0.5 text-xs font-semibold text-ink xl:px-2 xl:py-1 xl:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-2 px-1.5 py-0.5 text-xs font-semibold text-ink xl:px-2 xl:py-1 xl:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                     isActive
                       ? "border-ink bg-accent shadow-[2px_2px_0_var(--color-ink)]"
                       : "border-transparent hover:border-ink hover:bg-neutral-100"
                   }`}
                 >
+                  <ActionIcon name={navigationIcon(item.key)} size={14} />
                   {item.shortLabel ?? item.label}
                 </button>
               );
@@ -304,15 +307,16 @@ export function DashboardShell({
             </button>
 
             {profileOpen ? (
-              <div className="absolute right-0 mt-2 w-44 overflow-hidden border-2 border-ink bg-surface py-1 text-ink shadow-[3px_3px_0_var(--color-ink)]">
+              <div className="absolute right-0 mt-3 flex w-52 flex-col gap-3 border-2 border-ink bg-surface p-3 text-ink shadow-[3px_3px_0_var(--color-ink)]">
                 {role !== "Student" ? (
                   <Button
                     type="button"
                     size="sm"
-                    variant="neutral"
+                    variant="primary"
                     onClick={() => handleNavigate("settings")}
                     className="w-full justify-start text-left"
                   >
+                    <ActionIcon name="Settings" size={14} />
                     Settings
                   </Button>
                 ) : null}
@@ -322,6 +326,7 @@ export function DashboardShell({
                   variant="danger"
                   onClick={openLogoutConfirm}
                   className="w-full justify-start text-left"
+                  icon="LogOut"
                 >
                   Log out
                 </Button>
@@ -380,12 +385,13 @@ export function DashboardShell({
               <Button
                 type="button"
                 size="sm"
-                variant="danger"
+                variant="primary"
                 onClick={closeLogoutConfirm}
+                icon="X"
               >
                 Cancel
               </Button>
-              <Button type="button" size="sm" onClick={() => void confirmLogout()}>
+              <Button type="button" size="sm" variant="danger" onClick={() => void confirmLogout()} icon="LogOut">
                 Yes, log out
               </Button>
             </div>

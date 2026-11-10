@@ -1,17 +1,21 @@
 "use client";
 
 import { ClassRanking } from "@/components/dashboard/class-ranking";
+import { ActionIcon, navigationIcon } from "@/components/ui/action-icon";
 import { StatCard, StatGrid } from "@/components/dashboard/compact-layout";
 import {
   PixelBadge,
   PixelButton,
   PixelCard,
+  Trash2,
 } from "@/components/ui/pixel-primitives";
 import type { ClassStudent, TeacherClass } from "@/lib/classes/client";
 import type { ClassDashboardView } from "@/lib/dashboard/data";
 import { studentStatsByName } from "@/lib/dashboard/teacher-sections";
 
 export type ClassTab = "students" | "quizzes" | "ranking";
+
+const CLASS_ACTION_BUTTON = "min-h-8! gap-1.5! px-2! py-1! text-[9px]!";
 
 export const CLASS_TABS: readonly { key: ClassTab; label: string }[] = [
   { key: "students", label: "Students" },
@@ -49,7 +53,7 @@ export type ClassDetailActions = {
   onRemoveStudent: (student: ClassStudent) => void;
   onDeleteAccount: (student: ClassStudent) => void;
   /** Opens a quiz's results in the Quizzes section. */
-  onOpenQuiz: (title: string) => void;
+  onOpenQuiz: (quizId: string, title: string) => void;
 };
 
 /**
@@ -70,29 +74,42 @@ export function ClassDetail({
   return (
     <div className="space-y-2 sm:space-y-3">
       <div>
-        <PixelButton type="button" size="sm" variant="neutral" onClick={actions.onBack}>
-          ← All classes
+        <PixelButton type="button" size="sm" variant="neutral" onClick={actions.onBack} icon="ArrowLeft">
+          All classes
         </PixelButton>
       </div>
 
-      <PixelCard className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <PixelCard className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-[1_1_16rem] flex-wrap items-center gap-2">
           <h2 className="min-w-0 break-words text-lg font-bold sm:text-xl">
             {classItem.name}
           </h2>
           <PixelBadge>{plural(classItem.students.length, "student")}</PixelBadge>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <PixelButton type="button" size="sm" onClick={actions.onCreateStudent}>
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5">
+          <PixelButton type="button" size="sm" className={CLASS_ACTION_BUTTON} onClick={actions.onCreateStudent}>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M19 8v6m-3-3h6" />
+            </svg>
             New student
           </PixelButton>
-          <PixelButton type="button" size="sm" variant="accent" onClick={actions.onAddStudents}>
+          <PixelButton type="button" size="sm" variant="accent" className={CLASS_ACTION_BUTTON} onClick={actions.onAddStudents}>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
             Add students
           </PixelButton>
-          <PixelButton type="button" size="sm" variant="neutral" onClick={actions.onRename}>
+          <PixelButton type="button" size="sm" variant="neutral" className={CLASS_ACTION_BUTTON} onClick={actions.onRename}>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="m16 3 5 5-12 12-6 1 1-6Zm-2 2 5 5" />
+            </svg>
             Rename
           </PixelButton>
-          <PixelButton type="button" size="sm" variant="danger" onClick={actions.onDelete}>
+          <PixelButton type="button" size="sm" variant="danger" className={CLASS_ACTION_BUTTON} onClick={actions.onDelete}>
+            <Trash2 className="h-3.5 w-3.5" />
             Delete class
           </PixelButton>
         </div>
@@ -115,12 +132,13 @@ export function ClassDetail({
               aria-selected={selected}
               aria-controls="class-tab-panel"
               onClick={() => actions.onTab(item.key)}
-              className={`flex-1 whitespace-nowrap border-2 border-ink px-3 py-1.5 text-xs font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:flex-none sm:text-sm ${
+              className={`inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap border-2 border-ink px-3 py-1.5 text-xs font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:flex-none sm:text-sm ${
                 selected
                   ? "bg-primary shadow-[2px_2px_0_var(--color-ink)]"
                   : "bg-surface"
               }`}
             >
+              <ActionIcon name={navigationIcon(item.key)} size={14} />
               {item.label}
             </button>
           );
@@ -209,6 +227,7 @@ function StudentsTab({
                         size="sm"
                         aria-label={`View quizzes taken by ${student.username}`}
                         onClick={() => actions.onViewStudent(student)}
+                        icon="Eye"
                       >
                         View
                       </PixelButton>
@@ -218,6 +237,7 @@ function StudentsTab({
                         variant="outline"
                         aria-label={`Remove ${student.username} from ${classItem.name}`}
                         onClick={() => actions.onRemoveStudent(student)}
+                        icon="UserMinus"
                       >
                         Remove
                       </PixelButton>
@@ -226,9 +246,11 @@ function StudentsTab({
                         size="sm"
                         variant="danger"
                         aria-label={`Delete the account of ${student.username}`}
+                        title="Delete Account"
+                        className="h-8! min-h-8! w-8 shrink-0 p-0!"
                         onClick={() => actions.onDeleteAccount(student)}
                       >
-                        Delete account
+                        <Trash2 />
                       </PixelButton>
                     </div>
                   </div>
@@ -288,7 +310,8 @@ function QuizzesTab({
                 size="sm"
                 variant="neutral"
                 className="self-start"
-                onClick={() => actions.onOpenQuiz(quiz.title)}
+                onClick={() => actions.onOpenQuiz(quiz.sessionId, quiz.title)}
+                icon="ChartColumn"
               >
                 Results
               </PixelButton>

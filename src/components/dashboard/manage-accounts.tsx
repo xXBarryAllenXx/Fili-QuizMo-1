@@ -10,6 +10,7 @@ import { PasswordRequirements, PASSWORD_REQUIREMENTS_ID } from "@/components/ui/
 import {
   PixelButton,
   PixelInput,
+  Trash2,
 } from "@/components/ui/pixel-primitives";
 import { PixelModal } from "@/components/ui/pixel-modal";
 import {
@@ -351,6 +352,7 @@ export function ManageAccountsTable({
                 setCreateError("");
                 setCreateOpen(true);
               }}
+              icon="UserPlus"
             >
               Create
             </PixelButton>
@@ -360,6 +362,7 @@ export function ManageAccountsTable({
                 variant="neutral"
                 onClick={exitSelectMode}
                 disabled={deleting}
+                icon="X"
               >
                 Cancel
               </PixelButton>
@@ -378,6 +381,7 @@ export function ManageAccountsTable({
                     setSelectMode(true);
                   }
                 }}
+                icon="Trash2"
               >
                 {selectMode ? `Delete (${selectedCount})` : "Delete"}
               </PixelButton>
@@ -425,6 +429,7 @@ export function ManageAccountsTable({
                     : "View quizzes taken"
                 }
                 className="w-full whitespace-nowrap sm:w-auto"
+                icon="Eye"
               >
                 View
               </PixelButton>
@@ -435,9 +440,11 @@ export function ManageAccountsTable({
                 variant="danger"
                 size="sm"
                 onClick={() => setDeleteTarget(item)}
-                className="w-full whitespace-nowrap sm:w-auto"
+                aria-label="Delete Account"
+                title="Delete Account"
+                className="h-8! min-h-8! w-8 shrink-0 p-0!"
               >
-                Delete
+                <Trash2 />
               </PixelButton>
             ) : null}
           </div>
@@ -531,6 +538,7 @@ export function ManageAccountsTable({
                 variant="danger"
                 onClick={closeCreateModal}
                 disabled={creating}
+                icon="X"
               >
                 Cancel
               </PixelButton>
@@ -539,6 +547,7 @@ export function ManageAccountsTable({
                 variant="primary"
                 disabled={creating}
                 aria-busy={creating}
+                icon="Check"
               >
                 {creating ? "Creating..." : "Confirm"}
               </PixelButton>

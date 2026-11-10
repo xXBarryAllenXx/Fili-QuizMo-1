@@ -19,7 +19,7 @@ export function BadgesSection() {
       {error ? (
         <PixelCard className="text-center">
           <p role="alert" className="text-sm">{error}</p>
-          <PixelButton className="mt-3" onClick={retry}>Retry</PixelButton>
+          <PixelButton className="mt-3" onClick={retry} icon="RefreshCw">Retry</PixelButton>
         </PixelCard>
       ) : achievements === null ? (
         <p role="status" className="py-8 text-center text-sm text-px-muted">Loading achievements...</p>

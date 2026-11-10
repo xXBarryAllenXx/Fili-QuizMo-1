@@ -140,6 +140,7 @@ export function TeacherStatusActions({
             aria-label={busy ? `Saving ${action.label}` : action.label}
             onClick={() => void updateStatus(action.status)}
             className="w-full whitespace-nowrap sm:w-auto"
+            icon={busy ? undefined : action.status === "approved" ? "Check" : action.status === "suspended" ? "Ban" : "X"}
           >
             {busy ? (
               <span

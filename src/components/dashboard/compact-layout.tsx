@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { PixelCard } from "@/components/ui/pixel-primitives";
+import { ActionIcon } from "@/components/ui/action-icon";
 
 /**
  * Compact building blocks shared by the admin, teacher and student dashboards.
@@ -17,7 +18,7 @@ export function SectionHeading({
   description: string;
 }) {
   return (
-    <div>
+    <div className="text-left">
       <h2 className="text-lg font-bold text-foreground sm:text-xl">{title}</h2>
       <p className="mt-0.5 text-xs text-px-muted sm:text-sm">{description}</p>
     </div>
@@ -35,14 +36,12 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <PixelCard as="article" className="min-w-0 p-2.5! sm:p-3!">
-      <p className="truncate text-xs text-neutral-500 sm:text-sm">{label}</p>
-      <p className="mt-0.5 text-lg font-bold leading-tight text-foreground sm:text-xl">
+    <PixelCard as="article" className="flex h-full min-h-40 min-w-0 flex-col p-3! text-left">
+      <p className="min-h-10 text-xs text-neutral-500 sm:text-sm">{label}</p>
+      <p className="flex min-h-16 min-w-0 flex-1 items-center justify-center text-center font-pixel text-lg leading-tight text-foreground tabular-nums sm:text-xl">
         {value}
       </p>
-      {hint ? (
-        <p className="mt-0.5 truncate text-xs text-neutral-500">{hint}</p>
-      ) : null}
+      <p className="min-h-5 text-xs text-neutral-500">{hint}</p>
     </PixelCard>
   );
 }
@@ -75,7 +74,7 @@ export function StatGrid({
       : "grid-cols-2 [&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(odd)]:col-span-1";
 
   return (
-    <div className={`grid gap-2 sm:gap-3 ${phone} ${STAT_COLUMNS[columns]}`}>
+    <div className={`grid auto-rows-fr items-stretch gap-3 ${phone} ${STAT_COLUMNS[columns]}`}>
       {children}
     </div>
   );
@@ -128,12 +127,13 @@ export function ChartTabs({
               type="button"
               aria-pressed={selected}
               onClick={() => setActiveKey(tab.key)}
-              className={`shrink-0 whitespace-nowrap border-2 border-ink px-3 py-1.5 text-xs font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-2 border-ink px-3 py-1.5 text-xs font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                 selected
                   ? "bg-primary shadow-[2px_2px_0_var(--color-ink)]"
                   : "bg-surface"
               }`}
             >
+              <ActionIcon name="ChartColumn" size={14} />
               {tab.label}
             </button>
           );

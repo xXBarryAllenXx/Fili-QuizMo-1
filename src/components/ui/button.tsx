@@ -1,10 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ActionIconName } from "./action-icon";
 import {
   PixelButton,
   type PixelButtonVariant,
 } from "@/components/ui/pixel-primitives";
 
 type ButtonProps = {
+  icon?: ActionIconName;
   variant?: PixelButtonVariant;
   size?: "sm" | "md";
   className?: string;

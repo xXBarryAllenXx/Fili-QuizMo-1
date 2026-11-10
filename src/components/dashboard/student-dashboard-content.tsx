@@ -222,6 +222,7 @@ function RecentAttemptsTable({
                 type="button"
                 size="sm"
                 onClick={() => onReview(row.attempt_id as string)}
+                icon="ClipboardCheck"
               >
                 Review
               </Button>
@@ -475,6 +476,7 @@ export default function StudentDashboardContent({
                   aria-expanded={showMoreCharts}
                   aria-controls="student-more-charts"
                   onClick={() => setShowMoreCharts((open) => !open)}
+                  icon="ChartColumn"
                 >
                   {showMoreCharts ? "Hide charts" : "More charts"}
                 </Button>
@@ -504,6 +506,7 @@ export default function StudentDashboardContent({
                   size="sm"
                   className="shrink-0 whitespace-nowrap"
                   onClick={() => navigateToSection("assessment")}
+                  icon="Eye"
                 >
                   View all
                 </Button>

@@ -79,12 +79,19 @@ export function classesHref(
 
 /** The Quizzes section: the list, one quiz's results, or one attempt's answers. */
 export function quizzesHref(
-  quiz: string | null = null,
+  /** The quiz's unique id (never its title: titles can repeat). */
+  quizId: string | null = null,
   attemptId: string | null = null,
+  /**
+   * Display name for the heading. It is also the export's title filter (the
+   * shared `quiz` search param), never used to match attempts.
+   */
+  title: string | null = null,
 ): string {
   return teacherSectionHref("quizzes", {
-    entity: quiz || attemptId ? "students" : "quizzes",
-    quiz,
+    entity: quizId || attemptId ? "students" : "quizzes",
+    quizId,
+    quiz: quizId ? title : null,
     attempt: attemptId,
   });
 }

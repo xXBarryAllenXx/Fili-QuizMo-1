@@ -156,13 +156,14 @@ export function CreateStudentModal({
                 variant="neutral"
                 className="mt-2"
                 onClick={() => void copyPassword()}
+                icon={copied ? "Check" : "Copy"}
               >
                 {copied ? "Copied" : "Copy password"}
               </PixelButton>
             </div>
           ) : null}
           <div className="flex justify-end">
-            <PixelButton type="button" onClick={onClose}>
+            <PixelButton type="button" onClick={onClose} icon="Check">
               Done
             </PixelButton>
           </div>
@@ -234,10 +235,10 @@ export function CreateStudentModal({
           </p>
         ) : null}
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <PixelButton type="button" variant="danger" onClick={close} disabled={saving}>
+          <PixelButton type="button" variant="danger" onClick={close} disabled={saving} icon="X">
             Cancel
           </PixelButton>
-          <PixelButton type="submit" disabled={saving} aria-busy={saving}>
+          <PixelButton type="submit" disabled={saving} aria-busy={saving} icon="UserPlus">
             {saving ? "Creating..." : "Create student"}
           </PixelButton>
         </div>

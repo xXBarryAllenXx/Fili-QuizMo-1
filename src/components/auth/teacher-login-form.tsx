@@ -219,6 +219,7 @@ export function TeacherLoginForm({ status }: { status?: string }) {
         type="submit"
         className="w-full"
         aria-busy={isLoading}
+        icon={isLoading ? undefined : "LogIn"}
       >
         {isLoading ? (
           <span className="inline-flex items-center gap-2">

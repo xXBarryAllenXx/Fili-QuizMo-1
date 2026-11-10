@@ -336,6 +336,7 @@ export function SignupForm() {
         type="submit"
         className="w-full"
         disabled={isLoading || !consentAccepted}
+        icon={isLoading ? undefined : "UserPlus"}
       >
         {isLoading ? (
           <span className="inline-flex items-center gap-2">

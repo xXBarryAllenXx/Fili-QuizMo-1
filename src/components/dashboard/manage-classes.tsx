@@ -17,6 +17,7 @@ import {
   PixelButton,
   PixelCard,
   PixelInput,
+  Trash2,
 } from "@/components/ui/pixel-primitives";
 import {
   addStudents,
@@ -81,7 +82,7 @@ export function ManageClasses({
   onOpenQuiz,
 }: {
   classViews: readonly ClassDashboardView[];
-  onOpenQuiz: (title: string) => void;
+  onOpenQuiz: (quizId: string, title: string) => void;
 }) {
   const router = useRouter();
   const { searchParams, pushHref } = useUrlParams();
@@ -265,10 +266,11 @@ export function ManageClasses({
                 variant="neutral"
                 disabled={busy}
                 onClick={() => setRenameTarget(null)}
+                icon="X"
               >
                 Cancel
               </PixelButton>
-              <PixelButton type="submit" disabled={busy || !renameText.trim()}>
+              <PixelButton type="submit" disabled={busy || !renameText.trim()} icon="Save">
                 {busy ? "Saving..." : "Save"}
               </PixelButton>
             </div>
@@ -357,7 +359,7 @@ export function ManageClasses({
         className="border-2 border-danger-dark bg-danger-surface p-3 text-sm text-danger-dark"
       >
         <p>{loadError}</p>
-        <PixelButton type="button" size="sm" className="mt-2" onClick={reload}>
+        <PixelButton type="button" size="sm" className="mt-2" onClick={reload} icon="RefreshCw">
           Try again
         </PixelButton>
       </div>
@@ -424,7 +426,7 @@ export function ManageClasses({
               autoComplete="off"
               onChange={(event) => setName(event.target.value)}
             />
-            <PixelButton type="submit" disabled={creating || !name.trim()}>
+            <PixelButton type="submit" disabled={creating || !name.trim()} icon="CirclePlus">
               {creating ? "Creating..." : "Create class"}
             </PixelButton>
           </div>
@@ -454,11 +456,9 @@ export function ManageClasses({
                       <h3 className="break-words font-bold">{item.name}</h3>
                       <div className="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm">
                         <PixelBadge>{plural(item.students.length, "student")}</PixelBadge>
-                        {view && view.results.total > 0 ? (
-                          <span>Average {view.results.average}%</span>
-                        ) : (
+                        {!(view && view.results.total > 0) ? (
                           <span className="text-neutral-600">No scores yet</span>
-                        )}
+                        ) : null}
                         {waiting > 0 ? (
                           <PixelBadge variant="warning">
                             {plural(waiting, "quiz")} waiting on students
@@ -472,6 +472,7 @@ export function ManageClasses({
                       aria-label={`Open ${item.name}`}
                       onClick={() => pushHref(classesHref(item.classId))}
                       className="w-full sm:w-auto"
+                      icon="Eye"
                     >
                       Open
                     </PixelButton>
@@ -532,6 +533,7 @@ export function ManageClasses({
                     size="sm"
                     aria-label={`View quizzes taken by ${student.username}`}
                     onClick={() => setViewTarget(student)}
+                    icon="Eye"
                   >
                     View
                   </PixelButton>
@@ -540,11 +542,13 @@ export function ManageClasses({
                     size="sm"
                     variant="danger"
                     aria-label={`Delete the account of ${student.username}`}
+                    title="Delete Account"
+                    className="h-8! min-h-8! w-8 shrink-0 p-0!"
                     onClick={() =>
                       setAccountTarget({ classItem: null, student })
                     }
                   >
-                    Delete account
+                    <Trash2 />
                   </PixelButton>
                 </div>
               </li>

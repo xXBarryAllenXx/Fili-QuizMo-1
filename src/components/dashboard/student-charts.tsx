@@ -39,9 +39,9 @@ const toneBg: Record<Tone, string> = {
 };
 
 const chipClass: Record<Tone, string> = {
-  good: "border-ink bg-primary text-ink",
-  ok: "border-ink bg-accent text-ink",
-  low: "border-danger-dark bg-danger-surface text-danger-dark",
+  good: "bg-primary text-ink",
+  ok: "bg-accent text-ink",
+  low: "bg-danger-surface text-danger-dark",
 };
 
 /* ------------------------------------------------------------------ */
@@ -78,7 +78,7 @@ export function PercentChip({ value }: { value: number | null }) {
 
   return (
     <span
-      className={`inline-block border-2 px-2 py-0.5 text-xs font-bold ${chipClass[toneFor(value)]}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap px-2 py-1 text-center text-xs font-bold tabular-nums ${chipClass[toneFor(value)]}`}
     >
       {Math.round(value)}%
     </span>

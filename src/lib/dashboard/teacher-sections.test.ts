@@ -113,8 +113,12 @@ describe("classesHref and quizzesHref", () => {
       "/teacher-dashboard/classes?entity=students&class=c1&tab=ranking",
     );
     expect(quizzesHref()).toBe("/teacher-dashboard/quizzes?entity=quizzes");
-    expect(quizzesHref("Quiz A")).toBe(
-      "/teacher-dashboard/quizzes?entity=students&quiz=Quiz+A",
+    expect(quizzesHref("s1", null, "Quiz A")).toBe(
+      "/teacher-dashboard/quizzes?entity=students&quizId=s1&quiz=Quiz+A",
+    );
+    // Same title, different quiz: the id is what tells them apart.
+    expect(quizzesHref("s2", null, "Quiz A")).not.toBe(
+      quizzesHref("s1", null, "Quiz A"),
     );
     expect(quizzesHref(null, "a1")).toBe(
       "/teacher-dashboard/quizzes?entity=students&attempt=a1",

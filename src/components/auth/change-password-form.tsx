@@ -260,7 +260,7 @@ export function ChangePasswordForm({
             onChange={(event) => setConfirmPassword(event.target.value)}
             required
           />
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting} icon="KeyRound">
             Update Password
           </Button>
         </form>
@@ -278,7 +278,7 @@ export function ChangePasswordForm({
             autoComplete="email"
             required
           />
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting} icon="Send">
             {isSubmitting ? "Sending..." : "Send Reset Link"}
           </Button>
         </form>

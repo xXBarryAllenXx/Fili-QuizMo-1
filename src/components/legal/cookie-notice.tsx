@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { COOKIE_NOTICE_STORAGE_KEY } from "@/lib/legal/policy-version";
 import { NavLink } from "@/components/pixel";
+import { ActionIcon } from "@/components/ui/action-icon";
 
 const COOKIE_NOTICE_CHANGE_EVENT = "fili-quizmo-cookie-notice-change";
 let dismissedInCurrentTab = false;
@@ -63,8 +64,9 @@ export function CookieNotice() {
       <button
         type="button"
         onClick={dismiss}
-        className="pixel-border min-h-11 shrink-0 border-2 border-px-cream bg-transparent px-4 py-2 text-sm text-px-cream hover:bg-px-indigo-lt active:bg-px-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-px-gold"
+        className="pixel-border inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 border-2 border-px-cream bg-transparent px-4 py-2 text-sm text-px-cream hover:bg-px-indigo-lt active:bg-px-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-px-gold"
       >
+        <ActionIcon name="X" />
         Dismiss
       </button>
     </aside>

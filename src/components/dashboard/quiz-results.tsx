@@ -24,6 +24,7 @@ const PieChart = dynamic(
  * every student's attempts with the answer review and messages.
  */
 export function QuizResults({
+  quizId,
   title,
   attempts,
   attemptId,
@@ -31,6 +32,9 @@ export function QuizResults({
   onSelectAttempt,
   onBackToQuiz,
 }: {
+  /** The quiz's unique id; attempts are matched on this, never on the title. */
+  quizId: string;
+  /** Display name only. */
   title: string;
   /** Every finished attempt on this teacher's quizzes. */
   attempts: DashboardAttempt[];
@@ -42,8 +46,8 @@ export function QuizResults({
   onBackToQuiz: () => void;
 }) {
   const quizAttempts = useMemo(
-    () => attempts.filter((attempt) => attempt.quizTitle === title),
-    [attempts, title],
+    () => attempts.filter((attempt) => attempt.quizId === quizId),
+    [attempts, quizId],
   );
 
   const summary = useMemo(() => {
@@ -74,6 +78,7 @@ export function QuizResults({
     return (
       <div className="space-y-2 sm:space-y-3">
         <TeacherAssessmentSection
+          quizId={quizId}
           attempts={quizAttempts}
           attemptId={attemptId}
           onSelect={onSelectAttempt}
@@ -86,8 +91,8 @@ export function QuizResults({
   return (
     <div className="space-y-2 sm:space-y-3">
       <div>
-        <PixelButton type="button" size="sm" variant="neutral" onClick={onBack}>
-          ← All quizzes
+        <PixelButton type="button" size="sm" variant="neutral" onClick={onBack} icon="ArrowLeft">
+          All quizzes
         </PixelButton>
       </div>
 
@@ -128,6 +133,7 @@ export function QuizResults({
           </ChartPanel>
 
           <TeacherAssessmentSection
+            quizId={quizId}
             attempts={quizAttempts}
             attemptId={null}
             onSelect={onSelectAttempt}

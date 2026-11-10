@@ -373,6 +373,7 @@ export function AdminLoginForm({
         type="submit"
         className="w-full"
         aria-busy={isLoading}
+        icon={isLoading ? undefined : step === "credentials" ? "LogIn" : "ShieldCheck"}
       >
         {isLoading ? (
           <span className="inline-flex items-center gap-2">

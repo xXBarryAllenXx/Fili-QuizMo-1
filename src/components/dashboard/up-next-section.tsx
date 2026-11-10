@@ -39,6 +39,7 @@ export function UpNextSection({ onViewAll }: { onViewAll: () => void }) {
           size="sm"
           className="shrink-0 whitespace-nowrap"
           onClick={onViewAll}
+          icon="Eye"
         >
           View all
         </Button>
@@ -47,7 +48,7 @@ export function UpNextSection({ onViewAll }: { onViewAll: () => void }) {
       {error ? (
         <PixelCard>
           <p role="alert" className="text-sm">{error}</p>
-          <PixelButton className="mt-3" onClick={retry}>Retry</PixelButton>
+          <PixelButton className="mt-3" onClick={retry} icon="RefreshCw">Retry</PixelButton>
         </PixelCard>
       ) : quizzes === null ? (
         <p role="status" className="text-sm">Loading your quizzes...</p>

@@ -18,20 +18,14 @@ import type { StudentHistoryRow } from "@/components/dashboard/student-dashboard
 import type { DashboardAttempt } from "@/lib/dashboard/data";
 import { formatRawScore } from "@/lib/dashboard/raw-score";
 import { FEEDBACK_MAX_LENGTH } from "@/lib/dashboard/assessment";
-import {
-  MAX_ATTEMPTS_PER_STUDENT_QUIZ,
-  buildAttemptHistory,
-  filterHistory,
-  sortHistory,
-  type HistoryFilter,
-  type HistoryRow,
-  type HistorySort,
-} from "@/lib/dashboard/attempt-history";
+import { loadAllStudentAttempts } from "@/lib/dashboard/student-attempts";
+import { submittedQueryFor } from "@/lib/search/submit-search";
+
 import {
   UnreadMessagesNotice,
   useRefreshOnReturn,
 } from "@/components/dashboard/unread-messages-notice";
-import { LOW_SCORE_BELOW } from "@/lib/dashboard/performance-notice";
+
 import type {
   AnswerStatus,
   Assessment,
@@ -97,14 +91,6 @@ const MESSAGE_OPTIONS: { key: Exclude<NoteFilter, "">; label: string }[] = [
   { key: "replied", label: "Student replied" },
   { key: "without", label: "No messages yet" },
   { key: "with", label: "Has messages" },
-];
-
-const HISTORY_SORT_OPTIONS: { key: HistorySort; label: string }[] = [
-  { key: "name", label: "Student name (A–Z)" },
-  { key: "attempts", label: "Most attempts" },
-  { key: "improved", label: "Biggest improvement" },
-  { key: "dropped", label: "Biggest drop" },
-  { key: "recent", label: "Latest activity" },
 ];
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -333,6 +319,7 @@ function AttemptList({
                     size="sm"
                     className="whitespace-nowrap"
                     onClick={() => row.attempt_id && onSelect(row.attempt_id)}
+                    icon="ClipboardCheck"
                   >
                     Review
                   </PixelButton>
@@ -367,19 +354,80 @@ function AttemptList({
 /* Teacher view: every student's attempts on this teacher's quizzes    */
 /* ------------------------------------------------------------------ */
 
+function useAllStudentAttempts(quizId: string | null, attempts: DashboardAttempt[]) {
+  const [retry, setRetry] = useState(0);
+  const [loaded, setLoaded] = useState<{
+    quizId: string;
+    source: DashboardAttempt[];
+    rows: DashboardAttempt[];
+    complete: boolean;
+    error: string | null;
+  } | null>(null);
+  // Results only count for the quiz (and source list) they were loaded for, so
+  // switching quizzes can never show the previous quiz's rows.
+  const current =
+    quizId !== null && loaded?.quizId === quizId && loaded.source === attempts
+      ? loaded
+      : null;
+  const available = (current?.rows ?? attempts).filter(
+    (attempt) => quizId === null || attempt.quizId === quizId,
+  );
+  const loading = quizId !== null && !current?.complete;
+
+  useEffect(() => {
+    if (quizId === null) return;
+    const controller = new AbortController();
+    const source = attempts;
+    const isCurrent = (previous: typeof loaded) =>
+      previous?.quizId === quizId && previous.source === source;
+    loadAllStudentAttempts(quizId, source, (rows) => {
+      if (!controller.signal.aborted) {
+        setLoaded({ quizId, source, rows, complete: false, error: null });
+      }
+    }, controller.signal).then(() => {
+      if (!controller.signal.aborted) {
+        setLoaded((previous) => ({
+          quizId,
+          source,
+          rows: isCurrent(previous) && previous ? previous.rows : source,
+          complete: true,
+          error: null,
+        }));
+      }
+    }).catch((error: unknown) => {
+      if (!controller.signal.aborted) {
+        setLoaded((previous) => ({
+          quizId,
+          source,
+          rows: isCurrent(previous) && previous ? previous.rows : source,
+          complete: true,
+          error: error instanceof Error ? error.message : "Unable to load all student attempts.",
+        }));
+      }
+    });
+    return () => controller.abort();
+  }, [quizId, attempts, retry]);
+  return { available, loading, error: current?.error, retry: () => setRetry((value) => value + 1) };
+}
+
 export function TeacherAssessmentSection({
+  quizId = null,
   attempts,
   attemptId,
   onSelect,
   onBack,
 }: {
+  /** The selected quiz's unique id; attempts are loaded for this quiz only. */
+  quizId?: string | null;
   attempts: DashboardAttempt[];
   attemptId: string | null;
   onSelect: (attemptId: string) => void;
   onBack: () => void;
 }) {
+  const { available, loading, error, retry } = useAllStudentAttempts(quizId, attempts);
+
   if (attemptId) {
-    const known = attempts.find((attempt) => attempt.id === attemptId);
+    const known = available.find((attempt) => attempt.id === attemptId);
 
     return (
       <AssessmentReview
@@ -394,24 +442,29 @@ export function TeacherAssessmentSection({
     );
   }
 
-  return <TeacherAttemptList attempts={attempts} onSelect={onSelect} />;
+  return <TeacherAttemptList key={quizId ?? "all"} attempts={available} onSelect={onSelect} loading={loading} error={error} retry={retry} />;
 }
 
 function TeacherAttemptList({
   attempts,
   onSelect,
+  loading,
+  error,
+  retry,
 }: {
   attempts: DashboardAttempt[];
   onSelect: (attemptId: string) => void;
+  loading: boolean;
+  error: string | null | undefined;
+  retry: () => void;
 }) {
   const [quiz, setQuiz] = useState("");
+  // What is typed in the search box, and the query that was submitted with
+  // Enter. Only the submitted query filters the list.
+  const [studentDraft, setStudentDraft] = useState("");
   const [student, setStudent] = useState("");
   const [noteFilter, setNoteFilter] = useState<NoteFilter>("");
   const [sort, setSort] = useState<SortKey>("newest");
-  const [view, setView] = useState<"attempts" | "history">("attempts");
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
-  const [historySort, setHistorySort] = useState<HistorySort>("name");
-  const [page, setPage] = useState(1);
   const noteCounts = useFeedbackCounts();
 
   const quizTitles = useMemo(
@@ -427,46 +480,12 @@ function TeacherAttemptList({
     (attempt) =>
       (quiz === "" || attempt.quizTitle === quiz) &&
       (needle === "" || attempt.student.toLowerCase().includes(needle)) &&
-      // The message filter belongs to the Attempts view only.
-      (view !== "attempts" ||
-        noteFilter === "" ||
+      (noteFilter === "" ||
         (noteFilter === "replied"
           ? noteCounts[attempt.id]?.lastRole === "student"
           : (noteFilter === "with") === Boolean(noteCounts[attempt.id]))),
   );
-  // History groups the same filtered attempts by student and quiz.
-  const historyAll =
-    view === "history"
-      ? sortHistory(
-          filterHistory(
-            buildAttemptHistory(filtered),
-            historyFilter,
-            LOW_SCORE_BELOW,
-          ),
-          historySort,
-        )
-      : [];
-  const itemCount = view === "history" ? historyAll.length : filtered.length;
-  const totalPages = Math.max(1, Math.ceil(itemCount / PAGE_SIZE));
-  const validPage = Math.min(page, totalPages);
-  const pageStart = (validPage - 1) * PAGE_SIZE;
-  const rows = sortAttempts(filtered, sort).slice(
-    pageStart,
-    pageStart + PAGE_SIZE,
-  );
-  const historyRows = historyAll.slice(pageStart, pageStart + PAGE_SIZE);
-
-  // Same recorded numbers as the rest of the dashboard, for the filtered set.
-  const correctSum = filtered.reduce((sum, a) => sum + (a.correct ?? 0), 0);
-  const totalSum = filtered.reduce((sum, a) => sum + (a.total ?? 0), 0);
-  const average =
-    filtered.length === 0
-      ? 0
-      : Math.round(
-          (filtered.reduce((sum, a) => sum + a.percentage, 0) /
-            filtered.length) *
-            10,
-        ) / 10;
+  const rows = sortAttempts(filtered, sort);
 
   return (
     <div className="space-y-2 sm:space-y-3">
@@ -477,51 +496,29 @@ function TeacherAttemptList({
             onSelect(attemptId);
             return;
           }
-
-          // Several attempts have new messages: list the ones students replied to.
-          setView("attempts");
           setQuiz("");
           setStudent("");
+          setStudentDraft("");
           setNoteFilter("replied");
-          setPage(1);
         }}
       />
 
-      <section className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="text-xl font-bold text-foreground">Student attempts</h2>
-          <p className="mt-1 text-sm text-px-muted">
-            Review each student&apos;s answers, or see how their scores moved
-            across retakes.
-          </p>
-        </div>
-        {attempts.length > 0 ? (
-          <div role="group" aria-label="View" className="flex gap-1.5">
-            {(
-              [
-                { key: "attempts", label: "Attempts" },
-                { key: "history", label: "History" },
-              ] as const
-            ).map((option) => (
-              <PixelButton
-                key={option.key}
-                type="button"
-                size="sm"
-                variant={view === option.key ? "primary" : "neutral"}
-                aria-pressed={view === option.key}
-                onClick={() => {
-                  setView(option.key);
-                  setPage(1);
-                }}
-              >
-                {option.label}
-              </PixelButton>
-            ))}
-          </div>
-        ) : null}
+      <section>
+        <h2 className="text-xl font-bold text-foreground">Student attempts</h2>
+        <p className="mt-1 text-sm text-px-muted">
+          Review each student&apos;s answers from any of their attempts.
+        </p>
       </section>
 
-      {attempts.length === 0 ? (
+      {error ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-sm">{error}</p>
+          <PixelButton type="button" size="sm" onClick={retry} icon="RefreshCw">
+            Retry
+          </PixelButton>
+        </div>
+      ) : null}
+      {attempts.length === 0 && !loading && !error ? (
         <PixelCard>
           <p className="text-sm text-neutral-600">
             No finished quizzes yet. Student answers will appear here once they
@@ -531,158 +528,83 @@ function TeacherAttemptList({
       ) : (
         <>
           <PixelCard className="space-y-2 p-2.5! sm:space-y-3 sm:p-3!">
-            <div
-              className={`grid grid-cols-1 gap-2 sm:gap-3 ${
-                view === "attempts"
-                  ? "sm:grid-cols-3"
-                  : "sm:grid-cols-2 lg:grid-cols-4"
-              }`}
-            >
-              <label
-                htmlFor="assessment-quiz"
-                className="block text-xs font-medium sm:text-sm"
-              >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+              <label htmlFor="assessment-quiz" className="block text-xs font-medium sm:text-sm">
                 Quiz
                 <select
                   id="assessment-quiz"
                   value={quiz}
                   onChange={(event) => {
                     setQuiz(event.currentTarget.value);
-                    setPage(1);
                   }}
                   className="pixel-input mt-1 h-10 w-full px-3 text-sm md:h-9"
                 >
                   <option value="">All quizzes</option>
                   {quizTitles.map((title) => (
-                    <option key={title} value={title}>
-                      {title}
-                    </option>
+                    <option key={title} value={title}>{title}</option>
                   ))}
                 </select>
               </label>
-              <label
-                htmlFor="assessment-student"
-                className="block text-xs font-medium sm:text-sm"
-              >
+              <label htmlFor="assessment-student" className="block text-xs font-medium sm:text-sm">
                 Student
                 <input
                   id="assessment-student"
                   type="search"
-                  value={student}
+                  value={studentDraft}
                   maxLength={100}
                   placeholder="Search by student name"
+                  enterKeyHint="search"
                   onChange={(event) => {
-                    setStudent(event.currentTarget.value);
-                    setPage(1);
+                    setStudentDraft(event.currentTarget.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.preventDefault();
+                    // Enter applies the typed name; empty restores every attempt.
+                    const submitted = submittedQueryFor(
+                      event.key,
+                      event.nativeEvent.isComposing,
+                      studentDraft,
+                      student,
+                    );
+                    if (submitted !== null) setStudent(submitted);
                   }}
                   className="pixel-input mt-1 h-10 w-full px-3 text-sm md:h-9"
                 />
               </label>
-              {view === "history" ? (
-                <label
-                  htmlFor="assessment-show"
-                  className="block text-xs font-medium sm:text-sm"
-                >
-                  Show
-                  <select
-                    id="assessment-show"
-                    value={historyFilter}
-                    onChange={(event) => {
-                      setHistoryFilter(event.currentTarget.value as HistoryFilter);
-                      setPage(1);
-                    }}
-                    className="pixel-input mt-1 h-10 w-full px-3 text-sm md:h-9"
-                  >
-                    <option value="all">All students</option>
-                    <option value="retakes">Retakes only (2+ attempts)</option>
-                    <option value="low">
-                      Latest score below {LOW_SCORE_BELOW}%
-                    </option>
-                  </select>
-                </label>
-              ) : null}
-              <label
-                htmlFor="assessment-sort"
-                className="block text-xs font-medium sm:text-sm"
-              >
+              <label htmlFor="assessment-sort" className="block text-xs font-medium sm:text-sm">
                 Sort by
                 <select
                   id="assessment-sort"
-                  value={
-                    view === "attempts"
-                      ? noteFilter !== ""
-                        ? noteFilter
-                        : sort
-                      : historySort
-                  }
+                  value={noteFilter !== "" ? noteFilter : sort}
                   onChange={(event) => {
                     const value = event.currentTarget.value;
-
-                    if (view === "history") {
-                      setHistorySort(value as HistorySort);
-                    } else if (
-                      MESSAGE_OPTIONS.some((option) => option.key === value)
-                    ) {
-                      // A message option filters the list (newest first).
+                    if (MESSAGE_OPTIONS.some((option) => option.key === value)) {
                       setNoteFilter(value as NoteFilter);
                       setSort("newest");
                     } else {
                       setNoteFilter("");
                       setSort(value as SortKey);
                     }
-                    setPage(1);
                   }}
                   className="pixel-input mt-1 h-10 w-full px-3 text-sm md:h-9"
                 >
-                  {view === "attempts" ? (
-                    <>
-                      {SORT_OPTIONS.map((option) => (
-                        <option key={option.key} value={option.key}>
-                          {option.label}
-                        </option>
-                      ))}
-                      <optgroup label="Messages">
-                        {MESSAGE_OPTIONS.map((option) => (
-                          <option key={option.key} value={option.key}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </>
-                  ) : (
-                    HISTORY_SORT_OPTIONS.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.label}
-                      </option>
-                    ))
-                  )}
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                  <optgroup label="Messages">
+                    {MESSAGE_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>{option.label}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </label>
             </div>
           </PixelCard>
 
-          <section aria-label="Answer summary">
-            <StatGrid columns={3}>
-              <StatCard label="Attempts" value={String(filtered.length)} />
-              <StatCard
-                label="Correct answers"
-                value={totalSum > 0 ? `${correctSum}/${totalSum}` : "—"}
-              />
-              <StatCard label="Average score" value={`${average}%`} />
-            </StatGrid>
-          </section>
-
-          {view === "history" ? (
-            <HistoryTable
-              rows={historyRows}
-              page={validPage}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              onSelect={onSelect}
-            />
-          ) : (
           <PaginatedTable
             caption="Student attempts you can review"
+            scrollable
+            pagination={false}
             columns={[
               {
                 key: "student",
@@ -727,6 +649,7 @@ function TeacherAttemptList({
                     size="sm"
                     className="whitespace-nowrap"
                     onClick={() => onSelect(row.id)}
+                    icon="ClipboardCheck"
                   >
                     Review
                   </PixelButton>
@@ -746,214 +669,11 @@ function TeacherAttemptList({
             ]}
             rows={rows}
             rowKey={(row) => row.id}
-            page={validPage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            emptyMessage="No attempts match your filters."
+            emptyMessage={loading ? "Loading student attempts..." : "No results found."}
           />
-          )}
-          {view === "history" ? <HistoryGuide /> : null}
         </>
       )}
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* History: every score a student got on each quiz                     */
-/* ------------------------------------------------------------------ */
-
-const CHIP_TONE = (percentage: number) =>
-  percentage >= 75
-    ? "bg-primary text-ink border-ink"
-    : percentage >= 50
-      ? "bg-accent text-ink border-ink"
-      : "bg-danger-surface text-danger-dark border-danger-dark";
-
-/** Boxes shown before the rest fold into "+N earlier". */
-const VISIBLE_SCORES = 5;
-
-/**
- * One box per attempt, oldest to newest. A long history folds the older boxes
- * into one button so a row never grows tall, however many retakes there are.
- */
-function ScoreChips({
-  row,
-  onSelect,
-}: {
-  row: HistoryRow;
-  onSelect: (attemptId: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const folded = !expanded && row.scores.length > VISIBLE_SCORES;
-  const shown = folded ? row.scores.slice(-VISIBLE_SCORES) : row.scores;
-  const hiddenCount = row.scores.length - shown.length;
-
-  return (
-    <span className="flex flex-wrap items-center gap-1">
-      {folded ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          aria-label={`Show ${hiddenCount} earlier attempts`}
-          className="border-2 border-dashed border-ink bg-surface px-1.5 py-0.5 text-xs font-bold whitespace-nowrap"
-        >
-          +{hiddenCount} earlier
-        </button>
-      ) : null}
-      {shown.map((score) => (
-        <button
-          key={score.id}
-          type="button"
-          title={`Attempt ${score.attemptNumber} · ${formatDate(score.completedAt)} · open answers`}
-          aria-label={`Attempt ${score.attemptNumber}: ${score.label}, ${formatDate(score.completedAt)}. Open answers`}
-          onClick={() => onSelect(score.id)}
-          className={`border-2 px-1.5 py-0.5 text-xs font-bold whitespace-nowrap ${CHIP_TONE(score.percentage)}`}
-        >
-          {score.label}
-        </button>
-      ))}
-      {expanded && row.scores.length > VISIBLE_SCORES ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="px-1 text-xs font-bold underline"
-        >
-          Show fewer
-        </button>
-      ) : null}
-    </span>
-  );
-}
-
-function changeText(row: HistoryRow): string {
-  if (row.change === null) return "Only one attempt";
-
-  const since =
-    row.earlierNotShown > 0
-      ? `since attempt ${row.scores[0].attemptNumber}`
-      : "since first";
-
-  if (row.change === 0) return `No change ${since}`;
-
-  return `${row.change > 0 ? "▲ +" : "▼ "}${row.change}% ${since}`;
-}
-
-function HistoryTable({
-  rows,
-  page,
-  totalPages,
-  onPageChange,
-  onSelect,
-}: {
-  rows: HistoryRow[];
-  page: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-  onSelect: (attemptId: string) => void;
-}) {
-  return (
-    <PaginatedTable
-      caption="Every score per student and quiz"
-      columns={[
-        {
-          key: "student",
-          label: "Student",
-          className: "whitespace-nowrap",
-          render: (row) => (
-            <span className="font-semibold text-foreground">{row.student}</span>
-          ),
-        },
-        {
-          key: "quiz",
-          label: "Quiz",
-          render: (row) => row.quizTitle,
-        },
-        {
-          key: "scores",
-          label: "Scores (oldest → newest)",
-          render: (row) => <ScoreChips row={row} onSelect={onSelect} />,
-        },
-        {
-          key: "progress",
-          label: "Progress",
-          render: (row) => (
-            <span className="block text-xs">
-              <span className="block font-semibold text-foreground">
-                {row.attemptsTaken === 1
-                  ? "1 attempt"
-                  : `${row.attemptsTaken} attempts`}{" "}
-                · Best {row.best.label}
-              </span>
-              <span className="block text-neutral-600">{changeText(row)}</span>
-              {row.earlierNotShown > 0 ? (
-                <span className="block text-neutral-500">
-                  Latest {row.scores.length} shown
-                </span>
-              ) : null}
-            </span>
-          ),
-        },
-      ]}
-      rows={rows}
-      rowKey={(row) => row.key}
-      page={page}
-      totalPages={totalPages}
-      onPageChange={onPageChange}
-      emptyMessage="No students match these filters."
-    />
-  );
-}
-
-/** Always visible under the history table: what the boxes and numbers mean. */
-function HistoryGuide() {
-  const swatch = (tone: string, label: string) => (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      <span
-        aria-hidden="true"
-        className={`inline-block h-3 w-3 border-2 ${tone}`}
-      />
-      {label}
-    </span>
-  );
-
-  return (
-    <section
-      aria-label="How to read the history"
-      className="space-y-1.5 border-2 border-ink bg-neutral-100 p-2.5 text-xs text-neutral-700 sm:text-sm"
-    >
-      <h4 className="text-sm font-bold text-foreground">How to read this</h4>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>
-          Each box is one attempt, oldest on the left.{" "}
-          <span className="inline-flex flex-wrap gap-x-2.5 gap-y-0.5 align-middle">
-            {swatch("border-ink bg-primary", "75% or more")}
-            {swatch("border-ink bg-accent", "50–74%")}
-            {swatch(
-              "border-danger-dark bg-danger-surface",
-              "Below 50%",
-            )}
-          </span>
-          . Select a box to open the answers for that attempt.
-        </li>
-        <li>
-          <strong>Best</strong> is the highest score. <strong>Change</strong> is
-          the latest score minus the first one, in percentage points.
-        </li>
-        <li>
-          Students can retake a quiz as many times as you allow, so a long
-          history shows the latest {VISIBLE_SCORES} boxes. Select “+N earlier”
-          to see the rest. For each student and quiz, the dashboard keeps their
-          latest {MAX_ATTEMPTS_PER_STUDENT_QUIZ} attempts; the row says when
-          older ones are not shown.
-        </li>
-        <li>
-          Use <strong>Show</strong> and <strong>Sort by</strong> to find
-          retakes, students whose latest score is low, or who improved or
-          dropped the most.
-        </li>
-      </ul>
-    </section>
   );
 }
 
@@ -1182,12 +902,13 @@ function AssessmentReview({
                 setHidePreferences(next);
                 saveHidePreferences(next);
               }}
+              icon={hideAnswers ? "Eye" : "EyeOff"}
             >
               {hideAnswers ? "Show answers" : "Hide answers"}
             </PixelButton>
           ) : null}
-          <PixelButton type="button" variant="neutral" size="sm" onClick={onBack}>
-            ← Back to quizzes
+          <PixelButton type="button" variant="neutral" size="sm" onClick={onBack} icon="ArrowLeft">
+            Back to quizzes
           </PixelButton>
         </div>
       </div>
@@ -1336,6 +1057,7 @@ function ReviewBody({
               variant={filter === option.key ? "primary" : "neutral"}
               aria-pressed={filter === option.key}
               onClick={() => onFilterChange(option.key)}
+              icon={option.key === "correct" ? "Check" : option.key === "wrong" ? "X" : option.key === "skipped" ? "ArrowRight" : "ListFilter"}
             >
               {option.label}
             </PixelButton>
@@ -1615,6 +1337,7 @@ function FeedbackPanel({
             variant="accent"
             className="whitespace-nowrap"
             onClick={() => setOpen(true)}
+            icon="MessageSquare"
           >
             Ask your teacher
           </PixelButton>
@@ -1665,6 +1388,7 @@ function FeedbackPanel({
                         aria-busy={deletingId === note.id}
                         onClick={() => void remove(note.id)}
                         className="whitespace-nowrap"
+                        icon={deletingId === note.id ? undefined : "Trash2"}
                       >
                         {deletingId === note.id ? <Spinner /> : null}
                         <span>
@@ -1677,6 +1401,7 @@ function FeedbackPanel({
                         variant="neutral"
                         disabled={deletingId !== null}
                         onClick={() => setConfirmId(null)}
+                        icon="X"
                       >
                         Keep
                       </PixelButton>
@@ -1687,6 +1412,7 @@ function FeedbackPanel({
                       size="sm"
                       variant="neutral"
                       onClick={() => setConfirmId(note.id)}
+                      icon="Trash2"
                     >
                       Delete
                     </PixelButton>
@@ -1757,6 +1483,7 @@ function FeedbackPanel({
                   setMessage("");
                   setError(null);
                 }}
+                icon="X"
               >
                 Cancel
               </PixelButton>
@@ -1768,6 +1495,7 @@ function FeedbackPanel({
               disabled={sending || trimmed === ""}
               aria-busy={sending}
               className="whitespace-nowrap"
+              icon={sending ? undefined : "Send"}
             >
               {sending ? <Spinner /> : null}
               <span>

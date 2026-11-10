@@ -284,6 +284,7 @@ export function StudentQuizzesModal({
                 setState({ kind: "loading" });
                 setReloads((count) => count + 1);
               }}
+              icon="RefreshCw"
             >
               Try again
             </PixelButton>
@@ -293,7 +294,7 @@ export function StudentQuizzesModal({
           <StudentQuizzesList payload={state.payload} />
         ) : null}
         <div className="flex justify-end pt-1">
-          <PixelButton type="button" variant="neutral" onClick={onClose}>
+          <PixelButton type="button" variant="neutral" onClick={onClose} icon="X">
             Close
           </PixelButton>
         </div>
