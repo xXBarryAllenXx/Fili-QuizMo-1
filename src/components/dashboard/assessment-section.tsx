@@ -1195,7 +1195,7 @@ function AssessmentReview({
       {!current ? (
         <PixelCard>
           <p role="status" className="text-sm text-neutral-600">
-            Loading your answers...
+            Loading the answers...
           </p>
         </PixelCard>
       ) : null}
