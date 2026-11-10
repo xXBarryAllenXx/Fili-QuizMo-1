@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PixelModal } from "@/components/ui/pixel-modal";
-import {
-  PixelBadge,
-  PixelButton,
-  PixelTable,
-} from "@/components/ui/pixel-primitives";
+import { PixelBadge, PixelButton } from "@/components/ui/pixel-primitives";
 
 /** Same fields the Assessment list shows for an attempt. */
 export type StudentQuizAttempt = {
@@ -148,43 +144,27 @@ export function StudentQuizzesList({
           ? "Finished attempts on your quizzes, newest first."
           : "Finished attempts on all quizzes, newest first."}
       </p>
-      <div className="overflow-x-auto border-2 border-ink bg-surface">
-        <PixelTable className="min-w-full border-0 text-xs! shadow-none sm:text-sm!">
-          <caption className="sr-only">
-            Quizzes taken by {payload.student.username || "this student"}
-          </caption>
-          <thead className="bg-neutral-100">
-            <tr>
-              <th scope="col" className="px-2 py-1.5 text-left font-bold">
-                Quiz
-              </th>
-              <th scope="col" className="px-2 py-1.5 text-left font-bold">
-                Try
-              </th>
-              <th scope="col" className="px-2 py-1.5 text-left font-bold">
-                Score
-              </th>
-              <th scope="col" className="px-2 py-1.5 text-left font-bold">
-                Finished
-              </th>
-              <th scope="col" className="px-2 py-1.5 text-left font-bold">
-                Time
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {quizzes.map((quiz) => (
-              <tr key={quiz.attemptId} className="border-t border-neutral-200">
-                <th
-                  scope="row"
-                  className="px-2 py-1.5 text-left align-middle font-semibold"
-                >
-                  {quiz.quizTitle}
-                </th>
-                <td className="px-2 py-1.5 align-middle">
-                  {quiz.attemptNumber ?? "—"}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 align-middle">
+      {/* One card per attempt: nothing is cut off or scrolls sideways. */}
+      <ul
+        aria-label={`Quizzes taken by ${payload.student.username || "this student"}`}
+        className="space-y-2"
+      >
+        {quizzes.map((quiz) => (
+          <li
+            key={quiz.attemptId}
+            className="border-2 border-ink/30 bg-surface p-2 text-sm"
+          >
+            <p className="break-words font-semibold [overflow-wrap:anywhere]">
+              {quiz.quizTitle}
+            </p>
+            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs sm:grid-cols-4 sm:text-sm [&_dt]:text-neutral-600 [&_dd]:font-semibold">
+              <div>
+                <dt>Try</dt>
+                <dd>{quiz.attemptNumber ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Score</dt>
+                <dd>
                   {quiz.correctCount !== null && quiz.totalQuestions !== null
                     ? `${quiz.correctCount}/${quiz.totalQuestions}`
                     : "—"}{" "}
@@ -193,18 +173,20 @@ export function StudentQuizzesList({
                       {Math.round(quiz.percentage)}%
                     </PixelBadge>
                   ) : null}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 align-middle">
-                  {formatAttemptDate(quiz.completedAt)}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 align-middle">
-                  {formatDuration(quiz.durationSeconds)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </PixelTable>
-      </div>
+                </dd>
+              </div>
+              <div>
+                <dt>Finished</dt>
+                <dd>{formatAttemptDate(quiz.completedAt)}</dd>
+              </div>
+              <div>
+                <dt>Time</dt>
+                <dd>{formatDuration(quiz.durationSeconds)}</dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ul>
       {truncated ? (
         <p className="text-xs">
           Showing the {quizzes.length} most recent attempts.

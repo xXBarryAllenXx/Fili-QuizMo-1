@@ -10,7 +10,10 @@ import {
   getVisibleFilterKeys,
 } from "@/lib/search/config";
 import { getActiveFilterChips } from "@/lib/search/active-filters";
-import { defaultSearchQuery } from "@/lib/search/url-state";
+import {
+  defaultSearchQuery,
+  serializeSearchState,
+} from "@/lib/search/url-state";
 import { useSearchFilters } from "@/lib/search/use-search-filters";
 import type {
   SearchEntity,
@@ -39,6 +42,21 @@ type SearchFilterProps = {
   renderActions?: (item: SearchItem) => ReactNode;
   /** The teacher's classes. Without any, the Class filter is not shown. */
   classOptions?: readonly ClassFilterOption[];
+  /**
+   * Shows results as cards (no sideways scrolling) that load more as the list
+   * is scrolled, instead of a paged table.
+   */
+  renderCard?: (item: SearchItem) => ReactNode;
+};
+
+type SortChoice = { value: string; label: string };
+
+/** Pages already loaded for one search, so the list can keep growing. */
+type LoadedPages = {
+  key: string;
+  pages: Readonly<Record<number, SearchItem[]>>;
+  totalPages: number;
+  total: number;
 };
 
 export type ClassFilterOption = { id: string; name: string };
@@ -178,6 +196,8 @@ function filterKeysFor(
 ): SearchFilterKey[] {
   return getVisibleFilterKeys(role, entity).filter(
     (key) =>
+      key !== "from" &&
+      key !== "to" &&
       !(role === "teacher" && (key === "teacher" || key === "session")) &&
       !(key === "class" && !hasClasses),
   );
@@ -203,6 +223,7 @@ function FilterFields({
   updateQuery,
   idPrefix,
   classOptions,
+  sortChoices,
 }: {
   role: SearchRole;
   entity: SearchEntity;
@@ -210,6 +231,7 @@ function FilterFields({
   updateQuery: (patch: Partial<SearchQuery>) => void;
   idPrefix: string;
   classOptions: readonly ClassFilterOption[];
+  sortChoices: readonly SortChoice[];
 }) {
   const config = getEntityConfig(entity);
 
@@ -318,7 +340,31 @@ function FilterFields({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:gap-3 md:grid-cols-4">
+      <label
+        htmlFor={`${idPrefix}-sort`}
+        className="block text-xs font-medium sm:text-sm"
+      >
+        Sort by
+        <select
+          id={`${idPrefix}-sort`}
+          value={`${query.sort}:${query.dir}`}
+          onChange={(event) => {
+            const [sort, dir] = event.currentTarget.value.split(":");
+            updateQuery({
+              sort: sort as SearchQuery["sort"],
+              dir: dir as SearchQuery["dir"],
+            });
+          }}
+          className="pixel-input mt-1 h-10 w-full px-3 text-sm md:h-9"
+        >
+          {sortChoices.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {filterKeysFor(
         role,
         entity,
@@ -334,6 +380,7 @@ export function SearchFilter({
   toolbar,
   renderActions,
   classOptions = [],
+  renderCard,
 }: SearchFilterProps) {
   const {
     query,
@@ -351,6 +398,68 @@ export function SearchFilter({
     setLastResults(results);
   }
   const visibleResults = results ?? lastResults;
+
+  // Card lists grow as the page is scrolled: each page that arrives is kept,
+  // and a new search (anything but the page number) starts the list over.
+  const searchKey = serializeSearchState({ ...query, page: 1 });
+  const [loaded, setLoaded] = useState<LoadedPages>({
+    key: searchKey,
+    pages: {},
+    totalPages: 1,
+    total: 0,
+  });
+  if (renderCard && results) {
+    const { page, totalPages, total } = results.pagination;
+
+    if (loaded.key !== searchKey) {
+      setLoaded({ key: searchKey, pages: { [page]: results.items }, totalPages, total });
+    } else if (loaded.pages[page] !== results.items) {
+      setLoaded({
+        key: searchKey,
+        pages: { ...loaded.pages, [page]: results.items },
+        totalPages,
+        total,
+      });
+    }
+  }
+  const loadedPageNumbers = Object.keys(loaded.pages).map(Number);
+  const lastLoadedPage = loadedPageNumbers.length
+    ? Math.max(...loadedPageNumbers)
+    : 0;
+  const cardItems = loadedPageNumbers
+    .sort((left, right) => left - right)
+    .flatMap((page) => loaded.pages[page]);
+  const hasMore = Boolean(renderCard) && lastLoadedPage < loaded.totalPages;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const startedAtFirstPage = useRef(false);
+
+  // A list that opens on a later page (an old link, or after a refresh) starts
+  // from the top instead.
+  useEffect(() => {
+    if (!renderCard || startedAtFirstPage.current) return;
+    startedAtFirstPage.current = true;
+    if (query.page > 1) updateQuery({ page: 1 });
+  }, [renderCard, query.page, updateQuery]);
+
+  // Ask for the next page when the end of the list scrolls into view.
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!hasMore || loading || !node || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          updateQuery({ page: lastLoadedPage + 1 });
+        }
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, lastLoadedPage, updateQuery]);
 
   function clearAllFilters() {
     updateQuery(defaultSearchQuery(role, entity));
@@ -411,85 +520,59 @@ export function SearchFilter({
     ),
   );
   const filterCount = chips.filter((chip) => chip.key !== "q").length;
-  const hasFilters =
-    filterKeysFor(role, entity, classOptions.length > 0 || Boolean(query.class))
-      .length > 0;
 
   return (
     <section aria-label={`${config.pluralLabel} search`} className="space-y-2">
-      {/* One compact row: search, sort, filters and the page's own button. */}
+      {/* One compact row: search, the filters button and the page's own button.
+          Sorting and the other filters open under the button. */}
       <PixelCard className="space-y-2 p-2! sm:p-2.5!">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <label htmlFor={`${entity}-search`} className="sr-only">
             Search {config.pluralLabel.toLowerCase()}
           </label>
-          <div className="min-w-0 flex-1 basis-40 sm:max-w-64 sm:flex-none sm:basis-64">
+          <div className="min-w-0 flex-1 sm:max-w-80">
             <DebouncedTextInput
               key={`q-${query.q}`}
               id={`${entity}-search`}
               type="search"
               value={query.q}
               maxLength={200}
-              placeholder={config.searchPlaceholder}
+              placeholder="Search"
               className="h-9 w-full px-3 text-sm"
               onValueChange={(value) => updateQuery({ q: value })}
             />
           </div>
 
-          <label htmlFor={`${entity}-sort`} className="sr-only">
-            Sort by
-          </label>
-          <select
-            id={`${entity}-sort`}
-            value={`${query.sort}:${query.dir}`}
-            onChange={(event) => {
-              const [sort, dir] = event.currentTarget.value.split(":");
-              updateQuery({
-                sort: sort as SearchQuery["sort"],
-                dir: dir as SearchQuery["dir"],
-              });
-            }}
-            className="pixel-input h-9 min-w-0 flex-1 px-2 text-sm sm:flex-none"
+          <PixelButton
+            type="button"
+            variant="accent"
+            size="sm"
+            aria-expanded={filtersOpen}
+            aria-controls={`${entity}-filters`}
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
           >
-            {sortChoices.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
-
-          {hasFilters ? (
-            <PixelButton
-              type="button"
-              variant="accent"
-              size="sm"
-              aria-expanded={filtersOpen}
-              aria-controls={`${entity}-filters`}
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
+            Filters{filterCount > 0 ? ` (${filterCount})` : ""}
+            {/* A solid pixel arrow: points down when closed, up when open. */}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              shapeRendering="crispEdges"
+              aria-hidden="true"
+              className={`h-4 w-4 shrink-0 ${filtersOpen ? "rotate-180" : ""}`}
             >
-              Filters{filterCount > 0 ? ` (${filterCount})` : ""}
-              {/* A solid pixel arrow: points down when closed, up when open. */}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-                shapeRendering="crispEdges"
-                aria-hidden="true"
-                className={`h-4 w-4 shrink-0 ${filtersOpen ? "rotate-180" : ""}`}
-              >
-                <path d="M1 4h14v3H1zM3 7h10v3H3zM5 10h6v3H5zM7 13h2v1H7z" />
-              </svg>
-            </PixelButton>
-          ) : null}
+              <path d="M1 4h14v3H1zM3 7h10v3H3zM5 10h6v3H5zM7 13h2v1H7z" />
+            </svg>
+          </PixelButton>
 
           {toolbar ? (
             <div className="ml-auto flex flex-wrap gap-2">{toolbar}</div>
           ) : null}
         </div>
 
-        {filtersOpen && hasFilters ? (
+        {filtersOpen ? (
           <div id={`${entity}-filters`} className="border-t-2 border-ink/20 pt-2">
             <FilterFields
               role={role}
@@ -498,6 +581,7 @@ export function SearchFilter({
               updateQuery={updateQuery}
               idPrefix={`${entity}-filter`}
               classOptions={classOptions}
+              sortChoices={sortChoices}
             />
           </div>
         ) : null}
@@ -552,7 +636,48 @@ export function SearchFilter({
         </div>
       ) : null}
 
-      {!error && visibleResults ? (
+      {!error && visibleResults && renderCard ? (
+        <div
+          aria-busy={loading}
+          className={
+            loading && query.page === 1
+              ? "pointer-events-none opacity-60 transition-opacity"
+              : undefined
+          }
+        >
+          {cardItems.length === 0 ? (
+            <p className="border-2 border-dashed border-ink p-4 text-center text-sm">
+              No results match your filters.
+            </p>
+          ) : (
+            <ul aria-label={`${config.pluralLabel} search results`} className="space-y-2">
+              {cardItems.map((item) => (
+                <li key={item.id}>{renderCard(item)}</li>
+              ))}
+            </ul>
+          )}
+          <div ref={sentinelRef} className="py-3 text-center text-xs text-neutral-700">
+            {hasMore ? (
+              loading ? (
+                "Loading more..."
+              ) : typeof IntersectionObserver === "undefined" ? (
+                <PixelButton
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  onClick={() => updateQuery({ page: lastLoadedPage + 1 })}
+                >
+                  Load more
+                </PixelButton>
+              ) : null
+            ) : cardItems.length > 0 ? (
+              `Showing all ${loaded.total}`
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {!error && visibleResults && !renderCard ? (
         <div
           aria-busy={loading}
           className={loading ? "pointer-events-none opacity-60 transition-opacity" : undefined}

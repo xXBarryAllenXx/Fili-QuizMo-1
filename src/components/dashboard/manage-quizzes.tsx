@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SearchFilter } from "@/components/dashboard/search-filter";
-import { PixelButton, PixelInput } from "@/components/ui/pixel-primitives";
+import {
+  PixelBadge,
+  PixelButton,
+  PixelCard,
+  PixelInput,
+} from "@/components/ui/pixel-primitives";
 import { PixelModal } from "@/components/ui/pixel-modal";
 import { getStatusLabel } from "@/lib/search/config";
 import type { QuizSentTo } from "@/lib/dashboard/data";
@@ -42,6 +47,13 @@ function formatDate(value: string): string {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? "—" : dateFormatter.format(date);
+}
+
+function statusVariant(status: string): "success" | "warning" | "danger" | "info" {
+  if (status === "ready") return "success";
+  if (status === "draft") return "warning";
+  if (status === "failed") return "danger";
+  return "info";
 }
 
 /** "Classes: A, B. Students: x, y." or a note that it was sent nowhere. */
@@ -153,55 +165,70 @@ export function ManageQuizzesTable({
         key={refreshKey}
         role={actorRole}
         entity="quizzes"
-        renderActions={(item) =>
+        renderCard={(item) =>
           isQuiz(item) ? (
-            // Phones: the buttons share the cell width (and wrap if there are
-            // three), compact text. sm and up: natural width, regular text.
-            <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:gap-2 [&>button]:min-w-16 [&>button]:flex-1 [&>button]:px-2.5 [&>button]:text-xs sm:[&>button]:flex-none sm:[&>button]:px-3 sm:[&>button]:text-sm">
-              {onOpenResults ? (
+            <PixelCard className="space-y-2 p-3!">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="min-w-0 break-words font-bold">{item.title}</h3>
+                <PixelBadge variant={statusVariant(item.status)}>
+                  {getStatusLabel("quizzes", item.status)}
+                </PixelBadge>
+              </div>
+              <p className="break-words text-xs text-neutral-700 sm:text-sm">
+                {item.questionCount}{" "}
+                {item.questionCount === 1 ? "question" : "questions"} · Created{" "}
+                {formatDate(item.createdAt)}
+                {actorRole === "admin" && item.teacherUsername
+                  ? ` · ${item.teacherUsername}`
+                  : ""}
+              </p>
+              {/* The buttons share the row and wrap rather than overflow. */}
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 [&>button]:min-w-20 [&>button]:flex-1 sm:[&>button]:flex-none">
+                {onOpenResults ? (
+                  <PixelButton
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    aria-label={`Results for ${item.title}`}
+                    onClick={() => onOpenResults(item.title)}
+                  >
+                    Results
+                  </PixelButton>
+                ) : null}
                 <PixelButton
                   type="button"
-                  variant="primary"
+                  variant="accent"
                   size="sm"
-                  aria-label={`Results for ${item.title}`}
-                  onClick={() => onOpenResults(item.title)}
+                  aria-label={`View ${item.title}`}
+                  onClick={() => setViewTarget(item)}
                 >
-                  Results
+                  View
                 </PixelButton>
-              ) : null}
-              <PixelButton
-                type="button"
-                variant="accent"
-                size="sm"
-                aria-label={`View ${item.title}`}
-                onClick={() => setViewTarget(item)}
-              >
-                View
-              </PixelButton>
-              <PixelButton
-                type="button"
-                variant="danger"
-                size="sm"
-                aria-label={`Delete ${item.title}`}
-                onClick={() => setDeleteTarget(item)}
-              >
-                Delete
-              </PixelButton>
-            </div>
+                <PixelButton
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  aria-label={`Delete ${item.title}`}
+                  onClick={() => setDeleteTarget(item)}
+                >
+                  Delete
+                </PixelButton>
+              </div>
+            </PixelCard>
           ) : null
         }
       />
 
       {viewTarget ? (
         <PixelModal title="Quiz details" onClose={() => setViewTarget(null)}>
-          <dl className="space-y-3 text-sm">
+          <dl className="space-y-3 text-sm [&_dd]:break-words [&_dd]:[overflow-wrap:anywhere]">
             <div>
               <dt className="text-neutral-500">Title</dt>
               <dd className="font-semibold text-foreground">
                 {viewTarget.title}
               </dd>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 [&>div]:min-w-0">
               <div>
                 <dt className="text-neutral-500">Status</dt>
                 <dd className="font-semibold text-foreground">
@@ -215,18 +242,20 @@ export function ManageQuizzesTable({
                 </dd>
               </div>
               <div>
-                <dt className="text-neutral-500">Teacher</dt>
-                <dd className="font-semibold text-foreground">
-                  {viewTarget.teacherUsername || "—"}
-                </dd>
-              </div>
-              <div>
                 <dt className="text-neutral-500">Created</dt>
                 <dd className="font-semibold text-foreground">
                   {formatDate(viewTarget.createdAt)}
                 </dd>
               </div>
             </div>
+            {actorRole === "admin" ? (
+              <div>
+                <dt className="text-neutral-500">Teacher</dt>
+                <dd className="font-semibold text-foreground">
+                  {viewTarget.teacherUsername || "—"}
+                </dd>
+              </div>
+            ) : null}
             {actorRole === "teacher" ? (
               <div>
                 <dt className="text-neutral-500">Sent to</dt>
