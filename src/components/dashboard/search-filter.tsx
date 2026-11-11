@@ -523,14 +523,16 @@ export function SearchFilter({
 
   return (
     <section aria-label={`${config.pluralLabel} search`} className="space-y-2">
-      {/* One compact row: search, the filters button and the page's own button.
+      {/* Search, the filters button and the page's own buttons. On a phone the
+          search box gets a full line and the buttons wrap underneath it, so
+          nothing is squeezed or overlaps; from sm up it all sits on one row.
           Sorting and the other filters open under the button. */}
       <PixelCard className="space-y-2 p-2! sm:p-2.5!">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label htmlFor={`${entity}-search`} className="sr-only">
             Search {config.pluralLabel.toLowerCase()}
           </label>
-          <div className="min-w-0 flex-1 sm:max-w-80">
+          <div className="min-w-0 basis-full sm:min-w-44 sm:max-w-80 sm:flex-1 sm:basis-0">
             <SubmitTextInput
               id={`${entity}-search`}
               type="search"
@@ -556,7 +558,9 @@ export function SearchFilter({
           </PixelButton>
 
           {toolbar ? (
-            <div className="ml-auto flex flex-wrap gap-2">{toolbar}</div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 md:ml-auto">
+              {toolbar}
+            </div>
           ) : null}
         </div>
 
