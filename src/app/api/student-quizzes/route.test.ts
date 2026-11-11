@@ -25,13 +25,33 @@ type Result = { data: unknown; error: { message: string } | null };
 /** A tiny stand-in for the Supabase query builder that records the calls made. */
 function fakeSupabase(options: {
   profile?: Result;
-  scores?: Result;
+  sessions?: Result;
+  results?: Result;
+  durations?: Result;
+  teachers?: Result;
 }) {
   const calls: Array<[string, ...unknown[]]> = [];
+  const empty: Result = { data: [], error: null };
+  const results: Record<string, Result> = {
+    account_profiles: options.profile ?? {
+      data: { user_id: STUDENT_ID.toLowerCase(), username: "Maria" },
+      error: null,
+    },
+    quiz_sessions: options.sessions ?? {
+      data: [{ session_id: "session-1", teacher_id: "teacher-1" }],
+      error: null,
+    },
+    student_quiz_results: options.results ?? empty,
+    teacher_student_scores: options.durations ?? empty,
+    teachers: options.teachers ?? {
+      data: [{ user_id: "teacher-1" }],
+      error: null,
+    },
+  };
 
   function builder(table: string, result: Result) {
     const chain: Record<string, unknown> = {};
-    for (const method of ["select", "eq", "order", "limit"]) {
+    for (const method of ["select", "eq", "ilike", "in", "order", "limit"]) {
       chain[method] = (...args: unknown[]) => {
         calls.push([`${table}.${method}`, ...args]);
         return chain;
@@ -46,32 +66,31 @@ function fakeSupabase(options: {
   return {
     calls,
     client: {
-      from: (table: string) =>
-        table === "account_profiles"
-          ? builder(
-              table,
-              options.profile ?? {
-                data: { user_id: STUDENT_ID.toLowerCase(), username: "Maria" },
-                error: null,
-              },
-            )
-          : builder(table, options.scores ?? { data: [], error: null }),
+      auth: {
+        getUser: () =>
+          Promise.resolve({ data: { user: { id: "teacher-1" } }, error: null }),
+        mfa: {
+          getAuthenticatorAssuranceLevel: () =>
+            Promise.resolve({ data: { currentLevel: "aal2" }, error: null }),
+        },
+      },
+      from: (table: string) => builder(table, results[table] ?? empty),
     },
   };
 }
 
+/** A row of the student_quiz_results view, as the dashboard reads it. */
 function row(index: number) {
   return {
     attempt_id: `attempt-${index}`,
     session_id: "session-1",
-    quiz_title: ` Quiz ${index} `,
+    title: ` Quiz ${index} `,
+    participant_username: "Maria",
     attempt_number: 1,
     correct_count: 4,
     total_questions: 5,
     percentage: 80,
-    started_at: "2026-11-01T01:00:00Z",
-    completed_at: "2026-11-01T01:05:00Z",
-    duration_seconds: 300,
+    completed_at: `2026-11-0${index + 1}T01:05:00Z`,
   };
 }
 
@@ -119,14 +138,18 @@ describe("student quizzes route", () => {
     expect(await response.json()).toMatchObject({
       error: { code: "STUDENT_NOT_FOUND" },
     });
-    expect(calls.some(([name]) => name.startsWith("teacher_student_scores"))).toBe(
+    expect(calls.some(([name]) => name.startsWith("student_quiz_results"))).toBe(
       false,
     );
   });
 
   it("returns the student's finished quizzes, newest first", async () => {
     const { client, calls } = fakeSupabase({
-      scores: { data: [row(1), { ...row(2), quiz_title: null }], error: null },
+      results: { data: [row(1), row(2)], error: null },
+      durations: {
+        data: [{ attempt_id: "attempt-2", duration_seconds: 300 }],
+        error: null,
+      },
     });
     mocks.createClient.mockResolvedValue(client);
 
@@ -139,36 +162,43 @@ describe("student quizzes route", () => {
       scope: "own-quizzes",
       truncated: false,
     });
-    expect(body.quizzes).toHaveLength(2);
-    expect(body.quizzes[0]).toEqual({
-      attemptId: "attempt-1",
-      sessionId: "session-1",
-      quizTitle: "Quiz 1",
+    expect(
+      body.quizzes.map((quiz: { attemptId: string }) => quiz.attemptId),
+    ).toEqual(["attempt-2", "attempt-1"]);
+    expect(body.quizzes[0]).toMatchObject({
+      attemptId: "attempt-2",
       attemptNumber: 1,
       correctCount: 4,
       totalQuestions: 5,
       percentage: 80,
-      startedAt: "2026-11-01T01:00:00Z",
-      completedAt: "2026-11-01T01:05:00Z",
       durationSeconds: 300,
     });
-    expect(body.quizzes[1].quizTitle).toBe("Untitled quiz");
+    expect(body.quizzes[1].durationSeconds).toBeNull();
     expect(JSON.stringify(body)).not.toMatch(/correct_?answer|email/i);
+    // A teacher only sees attempts on quizzes they own.
+    expect(calls).toContainEqual(["quiz_sessions.eq", "teacher_id", "teacher-1"]);
+    expect(calls).toContainEqual(["account_profiles.eq", "role", "student"]);
     expect(calls).toContainEqual([
-      "teacher_student_scores.eq",
-      "student_user_id",
-      STUDENT_ID.toLowerCase(),
-    ]);
-    expect(calls).toContainEqual([
-      "account_profiles.eq",
-      "role",
-      "student",
-    ]);
-    expect(calls).toContainEqual([
-      "teacher_student_scores.order",
+      "student_quiz_results.order",
       "completed_at",
-      { ascending: false, nullsFirst: false },
+      { ascending: false },
     ]);
+  });
+
+  it("only includes attempts by the matching student name", async () => {
+    mocks.createClient.mockResolvedValue(
+      fakeSupabase({
+        results: {
+          data: [row(1), { ...row(2), participant_username: "Maria Clara" }],
+          error: null,
+        },
+      }).client,
+    );
+
+    const body = await (await GET(new Request(url(STUDENT_ID)))).json();
+
+    expect(body.quizzes).toHaveLength(1);
+    expect(body.quizzes[0].attemptId).toBe("attempt-1");
   });
 
   it("reports the wider scope for an admin", async () => {
@@ -181,30 +211,25 @@ describe("student quizzes route", () => {
     expect(body.quizzes).toEqual([]);
   });
 
-  it("caps the list at 100 attempts and says so", async () => {
-    const rows = Array.from({ length: 101 }, (_, index) => row(index));
+  it("says when the result list was cut off at the database limit", async () => {
+    const rows = Array.from({ length: 1000 }, (_, index) => ({
+      ...row(1),
+      attempt_id: `attempt-${index}`,
+    }));
     mocks.createClient.mockResolvedValue(
-      fakeSupabase({ scores: { data: rows, error: null } }).client,
+      fakeSupabase({ results: { data: rows, error: null } }).client,
     );
 
     const body = await (await GET(new Request(url(STUDENT_ID)))).json();
 
-    expect(body.quizzes).toHaveLength(100);
     expect(body.truncated).toBe(true);
   });
 
   it("tolerates missing numbers in a row", async () => {
     mocks.createClient.mockResolvedValue(
       fakeSupabase({
-        scores: {
-          data: [
-            {
-              ...row(1),
-              percentage: null,
-              duration_seconds: null,
-              correct_count: null,
-            },
-          ],
+        results: {
+          data: [{ ...row(1), percentage: null, correct_count: null }],
           error: null,
         },
       }).client,
@@ -213,7 +238,6 @@ describe("student quizzes route", () => {
     const body = await (await GET(new Request(url(STUDENT_ID)))).json();
 
     expect(body.quizzes[0]).toMatchObject({
-      percentage: null,
       durationSeconds: null,
       correctCount: null,
     });
@@ -222,13 +246,13 @@ describe("student quizzes route", () => {
   it("hides database error details", async () => {
     mocks.createClient.mockResolvedValue(
       fakeSupabase({
-        scores: { data: null, error: { message: "secret relation detail" } },
+        results: { data: null, error: { message: "secret relation detail" } },
       }).client,
     );
 
     const response = await GET(new Request(url(STUDENT_ID)));
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(500);
     expect(await response.text()).not.toContain("secret");
   });
 

@@ -304,11 +304,21 @@ export default function StudentDashboardContent({
   const cleanQuery = cleanParams.toString();
   const cleanHref = cleanQuery ? `${pathname}?${cleanQuery}` : pathname;
 
-  useResetRouteState("student-dashboard", cleanHref);
+  // The server page only reads ?page=; without it the address can change on
+  // its own and the loaded data stays valid.
+  const clientOnly = !searchParams.has("page");
+
+  useResetRouteState("student-dashboard", cleanHref, { clientOnly });
 
   function navigateToSection(tab: string) {
     const target = tab === "overview" ? pathname : `${pathname}?tab=${tab}`;
     if (target === `${pathname}${search ? `?${search}` : ""}`) {
+      return;
+    }
+
+    if (clientOnly) {
+      window.history.pushState(null, "", target);
+      window.scrollTo({ top: 0 });
       return;
     }
 

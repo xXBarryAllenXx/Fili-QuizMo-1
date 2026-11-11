@@ -25,7 +25,12 @@ export function shouldResetRoute(
 }
 
 /** Strip filter/pagination state when a dashboard section is re-entered. */
-export function useResetRouteState(scope: string, cleanHref: string): void {
+export function useResetRouteState(
+  scope: string,
+  cleanHref: string,
+  options: { clientOnly?: boolean } = {},
+): void {
+  const { clientOnly = false } = options;
   const pathname = usePathname();
   const router = useRouter();
 
@@ -33,9 +38,14 @@ export function useResetRouteState(scope: string, cleanHref: string): void {
     const currentHref = `${window.location.pathname}${window.location.search}`;
 
     if (shouldResetRoute(scope, currentHref, cleanHref)) {
-      router.replace(cleanHref, { scroll: false });
+      if (clientOnly) {
+        // Same page, other section: no server round trip needed.
+        window.history.replaceState(null, "", cleanHref);
+      } else {
+        router.replace(cleanHref, { scroll: false });
+      }
     }
-  }, [cleanHref, pathname, router, scope]);
+  }, [cleanHref, clientOnly, pathname, router, scope]);
 
   useEffect(() => {
     function forgetRoute() {

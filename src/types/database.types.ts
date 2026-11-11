@@ -399,6 +399,60 @@ export type Database = {
           },
         ]
       }
+      student_interventions: {
+        Row: {
+          addressed_at: string | null
+          attempt_id: string
+          correct_count: number | null
+          created_at: string
+          id: string
+          note: string
+          percentage: number | null
+          quiz_id: string
+          quiz_title: string
+          status: string
+          student_id: string
+          student_name: string
+          teacher_id: string
+          total_questions: number | null
+          updated_at: string
+        }
+        Insert: {
+          addressed_at?: string | null
+          attempt_id: string
+          correct_count?: number | null
+          created_at?: string
+          id?: string
+          note?: string
+          percentage?: number | null
+          quiz_id: string
+          quiz_title?: string
+          status?: string
+          student_id: string
+          student_name?: string
+          teacher_id: string
+          total_questions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          addressed_at?: string | null
+          attempt_id?: string
+          correct_count?: number | null
+          created_at?: string
+          id?: string
+          note?: string
+          percentage?: number | null
+          quiz_id?: string
+          quiz_title?: string
+          status?: string
+          student_id?: string
+          student_name?: string
+          teacher_id?: string
+          total_questions?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           created_at: string

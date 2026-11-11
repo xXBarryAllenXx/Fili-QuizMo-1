@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   SectionHeading,
   StatCard,
@@ -54,6 +55,7 @@ function missingText(item: PendingQuiz): string {
 export function TeacherOverview({
   data,
   notices,
+  interventions,
   onReviewNotice,
   onOpenMessages,
   onOpenClass,
@@ -62,6 +64,8 @@ export function TeacherOverview({
 }: {
   data: TeacherDashboardData;
   notices: PerformanceNotice[];
+  /** Low-score intervention alerts and history, shown under the notices. */
+  interventions?: ReactNode;
   onReviewNotice: (notice: PerformanceNotice) => void;
   onOpenMessages: (attemptId: string | null) => void;
   onOpenClass: (classId: string, tab: "quizzes") => void;
@@ -86,6 +90,7 @@ export function TeacherOverview({
         actionLabel="Review"
         onAction={onReviewNotice}
       />
+      {interventions}
 
       <StatGrid columns={4}>
         <StatCard

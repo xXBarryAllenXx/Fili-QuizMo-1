@@ -32,6 +32,9 @@ export type PerformanceNotice = {
 export type NoticeRow = {
   id: string | null;
   student?: string | null;
+  /** Unique ids used to key interventions (never names or titles). */
+  studentId?: string | null;
+  quizId?: string | null;
   title: string | null;
   percentage: number | null;
   correct: number | null;
@@ -105,22 +108,36 @@ function nameList(names: string[]): string {
   return more > 0 ? `${shown} +${more} more` : shown;
 }
 
+type ScoredRow = NoticeRow & { percentage: number };
+
 /**
- * Up to two notices for a teacher: students whose latest recent score is low
- * (warning first), and students whose latest recent score is high.
+ * Who a row belongs to. The student's unique id when the attempt has one, so
+ * two students with the same name stay separate and one student who changes
+ * their display name stays together. Only attempts without an id (guests)
+ * fall back to the name. Null when the row names nobody.
  */
-export function teacherNotices(
+export function studentKey(
+  row: Pick<NoticeRow, "studentId" | "student">,
+): string | null {
+  const id = (row.studentId ?? "").trim();
+  if (id !== "") return `id:${id.toLowerCase()}`;
+
+  const name = (row.student ?? "").trim().toLowerCase();
+  return name === "" ? null : `name:${name}`;
+}
+
+/** Each student's latest recent attempt (the only one a notice looks at). */
+function latestRecentPerStudent(
   rows: readonly NoticeRow[],
   now: number,
-): PerformanceNotice[] {
-  // Each student's latest recent attempt.
-  const latestByStudent = new Map<string, NoticeRow & { percentage: number }>();
+): ScoredRow[] {
+  const latestByStudent = new Map<string, ScoredRow>();
 
   for (const row of rows) {
     if (!hasScore(row) || !isRecent(row, now)) continue;
 
-    const key = (row.student ?? "").trim().toLowerCase();
-    if (key === "") continue;
+    const key = studentKey(row);
+    if (key === null) continue;
 
     const current = latestByStudent.get(key);
     if (!current || completedTime(row) > completedTime(current)) {
@@ -128,11 +145,35 @@ export function teacherNotices(
     }
   }
 
-  const latest = [...latestByStudent.values()];
-  const low = latest
+  return [...latestByStudent.values()];
+}
+
+/** Attempts that qualify for a low-score alert (same rule as the notices). */
+export function lowScoreAttempts(
+  rows: readonly NoticeRow[],
+  now: number,
+): ScoredRow[] {
+  return latestRecentPerStudent(rows, now)
     .filter((row) => row.percentage < LOW_SCORE_BELOW)
     .sort((left, right) => left.percentage - right.percentage);
-  const high = latest.filter((row) => row.percentage >= HIGH_SCORE_AT_LEAST);
+}
+
+/**
+ * Up to two notices for a teacher: students whose latest recent score is low
+ * (warning first), and students whose latest recent score is high.
+ * Attempts in `addressedAttemptIds` no longer count as needing help.
+ */
+export function teacherNotices(
+  rows: readonly NoticeRow[],
+  now: number,
+  addressedAttemptIds: ReadonlySet<string> = new Set(),
+): PerformanceNotice[] {
+  const low = lowScoreAttempts(rows, now).filter(
+    (row) => !row.id || !addressedAttemptIds.has(row.id),
+  );
+  const high = latestRecentPerStudent(rows, now).filter(
+    (row) => row.percentage >= HIGH_SCORE_AT_LEAST,
+  );
 
   const notices: PerformanceNotice[] = [];
 

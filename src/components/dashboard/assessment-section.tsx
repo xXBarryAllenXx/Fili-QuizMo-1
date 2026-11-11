@@ -22,6 +22,7 @@ import { loadAllStudentAttempts } from "@/lib/dashboard/student-attempts";
 import { submittedQueryFor } from "@/lib/search/submit-search";
 
 import {
+  invalidateUnreadMessages,
   UnreadMessagesNotice,
   useRefreshOnReturn,
 } from "@/components/dashboard/unread-messages-notice";
@@ -814,7 +815,9 @@ function AssessmentReview({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ attemptId }),
-          }).catch(() => undefined);
+          })
+            .catch(() => undefined)
+            .finally(invalidateUnreadMessages);
         }
       })
       .catch((error: unknown) => {
@@ -1006,9 +1009,10 @@ function ReviewBody({
       <ChartCard
         title="Result summary"
         caption={
-          viewer === "teacher"
+          (viewer === "teacher"
             ? "The recorded score for this attempt"
-            : "Your recorded score for this attempt"
+            : "Your recorded score for this attempt") +
+          (summary.weighted ? ", counted in points" : "")
         }
       >
         <LatestBreakdown data={breakdown} />

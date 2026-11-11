@@ -1,31 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { PASSWORD_RULES, validatePassword } from "./password-policy";
 
+const failedIds = (password: string, identity: string[] = []) =>
+  validatePassword(password, identity)
+    .results.filter((result) => !result.passed)
+    .map((result) => result.id);
+
 describe("password policy", () => {
-  it("accepts a password that meets every rule", () => {
-    const validation = validatePassword("Str0ng!Pass", [
+  it("accepts 8+ characters with a lowercase letter and a number", () => {
+    const validation = validatePassword("sunflower7", [
       "maria@example.com",
       "maria",
     ]);
 
     expect(validation.valid).toBe(true);
-    expect(validation.results.every((result) => result.passed)).toBe(true);
   });
 
-  it("reports missing character classes", () => {
-    const validation = validatePassword("password");
-    const failed = validation.results
-      .filter((result) => !result.passed)
-      .map((result) => result.id);
+  it("accepts a long passphrase of 15+ characters with no number", () => {
+    expect(validatePassword("purple monkey walks home").valid).toBe(true);
+  });
 
-    expect(validation.valid).toBe(false);
-    expect(failed).toEqual(
-      expect.arrayContaining(["uppercase", "number", "special"]),
+  it("rejects a short password that lacks a number", () => {
+    expect(validatePassword("sunflower").valid).toBe(false);
+    expect(failedIds("sunflower")).toEqual(
+      expect.arrayContaining(["long", "mix"]),
     );
   });
 
+  it("rejects a very common password", () => {
+    expect(validatePassword("password").valid).toBe(false);
+    expect(failedIds("password")).toContain("common");
+  });
+
   it("rejects a password containing the email or username", () => {
-    const validation = validatePassword("Maria123!", [
+    const validation = validatePassword("maria1234!", [
       "maria@example.com",
       "maria",
     ]);
@@ -38,18 +46,16 @@ describe("password policy", () => {
   });
 
   it("enforces the 72-byte limit", () => {
-    expect(validatePassword("Aa1!" + "a".repeat(68)).valid).toBe(true);
-    expect(validatePassword("Aa1!" + "a".repeat(69)).valid).toBe(false);
+    expect(validatePassword("a1" + "x".repeat(70)).valid).toBe(true);
+    expect(validatePassword("a1" + "x".repeat(71)).valid).toBe(false);
   });
 
   it("exposes every rule shown in the UI", () => {
     expect(PASSWORD_RULES.map((rule) => rule.id)).toEqual([
-      "min-length",
-      "uppercase",
-      "lowercase",
-      "number",
-      "special",
+      "long",
+      "mix",
       "max-length",
+      "common",
     ]);
   });
 });

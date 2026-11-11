@@ -4,9 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { DASHBOARD_DATA_CHANGED_EVENT } from "@/lib/dashboard/realtime-events";
+import { scheduleDashboardRefresh } from "@/lib/realtime/coalesced-refresh";
 
-const REFRESH_DELAY_MS = 750;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
@@ -26,19 +25,12 @@ export function DashboardRealtime({ role, teacherId }: DashboardRealtimeProps) {
   useEffect(() => {
     const supabase = createClient();
     let channel: RealtimeChannel | null = null;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectDelay = RECONNECT_BASE_MS;
     let disposed = false;
 
     function scheduleRefresh() {
-      if (refreshTimer) return;
-
-      refreshTimer = setTimeout(() => {
-        refreshTimer = null;
-        window.dispatchEvent(new Event(DASHBOARD_DATA_CHANGED_EVENT));
-        router.refresh();
-      }, REFRESH_DELAY_MS);
+      scheduleDashboardRefresh(() => router.refresh());
     }
 
     function connect() {
@@ -96,7 +88,6 @@ export function DashboardRealtime({ role, teacherId }: DashboardRealtimeProps) {
 
     return () => {
       disposed = true;
-      if (refreshTimer) clearTimeout(refreshTimer);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };

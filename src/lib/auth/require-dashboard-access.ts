@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { forbidden, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { isInvalidSession } from "@/lib/auth/session-errors";
@@ -10,7 +11,8 @@ import {
 } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
-async function requireAccess(
+// Cached so layouts and pages in one request share a single verification.
+const requireAccess = cache(async function requireAccess(
   expectedRole: AccountRole,
 ) {
   // Auth pages render per request; this stops Next's PPR shell from touching
@@ -61,7 +63,7 @@ async function requireAccess(
   }
 
   return { user, access };
-}
+});
 
 export async function requireTeacherAccess() {
   return requireAccess("teacher");

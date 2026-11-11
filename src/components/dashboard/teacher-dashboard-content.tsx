@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -18,11 +18,22 @@ import { ProfileCard } from "@/components/dashboard/profile-card";
 import { QuizResults } from "@/components/dashboard/quiz-results";
 import { SettingsPasswordForm } from "@/components/dashboard/settings-password-form";
 import { TeacherAssessmentSection } from "@/components/dashboard/assessment-section";
+import { InterventionPanel } from "@/components/dashboard/intervention-panel";
 import { TeacherOverview } from "@/components/dashboard/teacher-overview";
 import { logoutAndRedirect } from "@/lib/auth/logout";
 import type { TeacherDashboardData } from "@/lib/dashboard/data";
 import {
+  activeAlerts,
+  loadInterventions,
+  markAddressed,
+  startIntervention,
+  type InterventionAlert,
+  type InterventionRecord,
+} from "@/lib/dashboard/interventions";
+import {
+  lowScoreAttempts,
   teacherNotices,
+  type NoticeRow,
   type PerformanceNotice,
 } from "@/lib/dashboard/performance-notice";
 import { useResetRouteState } from "@/lib/dashboard/route-reset";
@@ -32,6 +43,7 @@ import {
   quizzesHref,
   teacherSectionFromUrl,
   teacherSectionHref,
+  TEACHER_BASE_PATH,
   type TeacherSectionKey,
 } from "@/lib/dashboard/teacher-sections";
 import { useUrlParams } from "@/lib/dashboard/use-url-params";
@@ -85,27 +97,109 @@ export default function TeacherDashboardContent({
 
   // Read once when the page opens; the notices look at the last two weeks.
   const [now] = useState(() => Date.now());
-  const notices = useMemo(
+  const noticeRows = useMemo<NoticeRow[]>(
     () =>
-      teacherNotices(
-        data.assessmentAttempts.map((attempt) => ({
-          id: attempt.id,
-          student: attempt.student,
-          title: attempt.quizTitle,
-          percentage: attempt.percentage,
-          correct: attempt.correct,
-          total: attempt.total,
-          completedAt: attempt.completedAt,
-        })),
-        now,
-      ),
-    [data.assessmentAttempts, now],
+      data.assessmentAttempts.map((attempt) => ({
+        id: attempt.id,
+        student: attempt.student,
+        studentId: attempt.studentId,
+        quizId: attempt.quizId,
+        title: attempt.quizTitle,
+        percentage: attempt.percentage,
+        correct: attempt.correct,
+        total: attempt.total,
+        completedAt: attempt.completedAt,
+      })),
+    [data.assessmentAttempts],
   );
 
-  useResetRouteState("teacher-dashboard", currentHref(activeKey, searchParams));
+  // Saved interventions (RLS limits them to this teacher's students).
+  const [records, setRecords] = useState<InterventionRecord[]>([]);
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
+  const [recordsError, setRecordsError] = useState("");
+
+  const refreshRecords = useCallback(async () => {
+    try {
+      setRecords(await loadInterventions());
+      setRecordsError("");
+    } catch (error) {
+      setRecordsError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setRecordsLoaded(true);
+    }
+  }, []);
+
+  // Load once on mount. The state updates happen after the request resolves,
+  // not synchronously inside the effect.
+  useEffect(() => {
+    let cancelled = false;
+
+    loadInterventions()
+      .then((loaded) => {
+        if (cancelled) return;
+        setRecords(loaded);
+        setRecordsError("");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setRecordsError(error instanceof Error ? error.message : "Unknown error");
+      })
+      .finally(() => {
+        if (!cancelled) setRecordsLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const notices = useMemo(() => {
+    const addressed = new Set(
+      records.filter((r) => r.status === "addressed").map((r) => r.attemptId),
+    );
+    const all = teacherNotices(noticeRows, now, addressed);
+
+    // Hold the low-score count until saved statuses are known, so an
+    // addressed alert never flashes back into the count.
+    return recordsLoaded ? all : all.filter((n) => n.tone !== "warning");
+  }, [noticeRows, now, records, recordsLoaded]);
+
+  const alerts = useMemo(
+    () => activeAlerts(lowScoreAttempts(noticeRows, now), records),
+    [noticeRows, now, records],
+  );
+  const history = useMemo(
+    () =>
+      records
+        .filter((r) => r.status === "addressed")
+        .sort((a, b) => Date.parse(b.addressedAt ?? "") - Date.parse(a.addressedAt ?? "")),
+    [records],
+  );
+
+  async function handleStart(alert: InterventionAlert, note: string) {
+    await startIntervention(alert, note);
+    await refreshRecords();
+  }
+
+  async function handleAddress(alert: InterventionAlert, note: string) {
+    await markAddressed(alert, note);
+    await refreshRecords();
+  }
+
+  useResetRouteState("teacher-dashboard", currentHref(activeKey, searchParams), {
+    clientOnly: true,
+  });
   useRealtimeRefresh(LIVE_TABLES);
 
   function go(href: string) {
+    // Sections share one server page, so moving between them only changes the
+    // address; the data is already loaded. Anything else is a real navigation.
+    if (href === TEACHER_BASE_PATH || href.startsWith(`${TEACHER_BASE_PATH}/`)) {
+      window.history.pushState(null, "", href);
+      window.scrollTo({ top: 0 });
+      return;
+    }
+
     navigate(() => router.push(href, { scroll: false }));
   }
 
@@ -160,6 +254,15 @@ export default function TeacherDashboardContent({
         <TeacherOverview
           data={data}
           notices={notices}
+          interventions={
+            <InterventionPanel
+              alerts={alerts}
+              history={history}
+              loadError={recordsError}
+              onStart={handleStart}
+              onAddress={handleAddress}
+            />
+          }
           onReviewNotice={(notice: PerformanceNotice) =>
             go(attemptHref(notice.attemptId))
           }

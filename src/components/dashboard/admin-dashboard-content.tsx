@@ -124,7 +124,9 @@ export default function AdminDashboardContent({
   const router = useRouter();
   const { navigate } = useNavigation();
 
-  useResetRouteState("admin-dashboard", sectionHref(activeKey));
+  useResetRouteState("admin-dashboard", sectionHref(activeKey), {
+    clientOnly: true,
+  });
   useRealtimeRefresh(LIVE_TABLES);
 
   function navigateToSection(key: string) {
@@ -136,7 +138,10 @@ export default function AdminDashboardContent({
       return;
     }
 
-    navigate(() => router.push(target, { scroll: false }));
+    // Sections share one server page, so only the address changes; the data
+    // is already loaded.
+    window.history.pushState(null, "", target);
+    window.scrollTo({ top: 0 });
   }
 
   async function handleLogout() {

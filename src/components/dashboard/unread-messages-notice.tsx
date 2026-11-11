@@ -2,18 +2,39 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PixelButton } from "@/components/ui/pixel-primitives";
+import { SESSION_ENDED_EVENT } from "@/lib/auth/session-state";
 import {
   parseUnreadSummary,
   unreadNotice,
   type UnreadSummary,
 } from "@/lib/dashboard/unread-messages";
 
+// Checks closer together than this reuse the last answer. Returning to a tab
+// fires both "focus" and "visibilitychange", and opening Overview again mounts
+// the notice again; none of that needs a new request.
+const MIN_GAP_MS = 20_000;
+const POLL_MS = 60_000;
+
+let lastCheck: { at: number; summary: UnreadSummary } | null = null;
+let inFlight = false;
+
+if (typeof window !== "undefined") {
+  window.addEventListener(SESSION_ENDED_EVENT, () => {
+    lastCheck = null;
+  });
+}
+
+/** Forget the last answer so the next check asks the server (e.g. after reading). */
+export function invalidateUnreadMessages(): void {
+  lastCheck = null;
+}
+
 /**
  * Runs `refresh` when the person comes back to this tab or window, and every
  * `everyMs` while it is open and visible, so a dashboard that was left open
  * still picks up messages that arrived in the meantime.
  */
-export function useRefreshOnReturn(refresh: () => void, everyMs = 30_000) {
+export function useRefreshOnReturn(refresh: () => void, everyMs = POLL_MS) {
   useEffect(() => {
     const run = () => {
       if (document.visibilityState === "visible") refresh();
@@ -34,7 +55,7 @@ export function useRefreshOnReturn(refresh: () => void, everyMs = 30_000) {
 /**
  * One slim line on the dashboard when someone has written to you since you last
  * opened that quiz's messages. It checks when the page is shown and again when
- * you return to it or every 30 seconds, stays until the messages are opened, and
+ * you return to it or every minute (never more than once every 20 seconds), stays until the messages are opened, and
  * shows nothing when there is nothing new (or when the check fails, so it never
  * gets in the way).
  */
@@ -46,13 +67,20 @@ export function UnreadMessagesNotice({
   /** attemptId opens that review; null opens the list of quizzes. */
   onOpen: (attemptId: string | null) => void;
 }) {
-  const [summary, setSummary] = useState<UnreadSummary | null>(null);
+  const [summary, setSummary] = useState<UnreadSummary | null>(
+    () => lastCheck?.summary ?? null,
+  );
   const latestRequest = useRef(0);
 
-  const load = useCallback((signal?: AbortSignal) => {
-    const request = ++latestRequest.current;
+  const load = useCallback(() => {
+    if (inFlight || (lastCheck && Date.now() - lastCheck.at < MIN_GAP_MS)) {
+      return;
+    }
 
-    fetch("/api/assessment/messages", { signal, cache: "no-store" })
+    const request = ++latestRequest.current;
+    inFlight = true;
+
+    fetch("/api/assessment/messages", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
 
@@ -62,18 +90,22 @@ export function UnreadMessagesNotice({
         if (request !== latestRequest.current) return;
 
         if (typeof body === "object" && body !== null && "unread" in body) {
-          setSummary(parseUnreadSummary(body.unread));
+          const parsed = parseUnreadSummary(body.unread);
+          lastCheck = { at: Date.now(), summary: parsed };
+          setSummary(parsed);
         }
       })
       .catch(() => {
         /* the notice is optional */
+      })
+      .finally(() => {
+        inFlight = false;
       });
   }, []);
 
+  // Not aborted on unmount: the answer is tiny and is kept for the next visit.
   useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-    return () => controller.abort();
+    load();
   }, [load]);
 
   const refresh = useCallback(() => load(), [load]);

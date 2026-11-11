@@ -12,6 +12,10 @@ import { createClient } from "@/lib/supabase/server";
 // These reads only add to pages that already work, so a slow backend must not
 // hold those pages up for long.
 const BACKEND_TIMEOUT_MS = 4_000;
+// After a timeout or network failure, skip the backend for a moment so every
+// page load during an outage does not wait the full timeout again.
+const BACKEND_COOLDOWN_MS = 15_000;
+let backendDownUntil = 0;
 
 /**
  * GETs one backend path with the signed-in user's own token, for server code
@@ -22,6 +26,7 @@ const BACKEND_TIMEOUT_MS = 4_000;
 async function getFromBackend(path: string): Promise<unknown | null> {
   const baseUrl = backendBaseUrl();
   if (!baseUrl) return null;
+  if (Date.now() < backendDownUntil) return null;
 
   try {
     const supabase = await createClient();
@@ -42,6 +47,7 @@ async function getFromBackend(path: string): Promise<unknown | null> {
 
     return response.ok ? await response.json() : null;
   } catch (error) {
+    backendDownUntil = Date.now() + BACKEND_COOLDOWN_MS;
     console.error(
       "Quiz backend request failed.",
       path,

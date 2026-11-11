@@ -40,6 +40,8 @@ export type DashboardAttempt = {
   total: number | null;
   percentage: number;
   completedAt: string;
+  /** Student account id when known (used to key interventions). */
+  studentId?: string | null;
   /** 1 for the student's first try on this quiz. Null when unknown. */
   attemptNumber: number | null;
 };
@@ -169,6 +171,7 @@ type ResultRow = {
   total_questions: number | string | null;
   completed_at: string;
   attempt_number?: number | string | null;
+  account_id?: string | null;
 };
 
 type RosterRow = {
@@ -178,7 +181,7 @@ type RosterRow = {
 
 const QUIZ_COLUMNS = "session_id, title, status, teacher_id, created_at";
 const RESULT_COLUMNS =
-  "attempt_id, session_id, title, participant_username, attempt_number, percentage, correct_count, total_questions, completed_at";
+  "attempt_id, session_id, title, participant_username, attempt_number, percentage, correct_count, total_questions, completed_at, account_id";
 const QUIZ_LIMIT = 1_000;
 const RESULT_LIMIT = 1_000;
 const ROSTER_LIMIT = 5_000;
@@ -378,6 +381,7 @@ function attemptList(
       total: readCount(row.total_questions),
       percentage: readNumber(row.percentage),
       completedAt: row.completed_at,
+      studentId: row.account_id ?? null,
       attemptNumber: readCount(row.attempt_number ?? null),
     });
   }

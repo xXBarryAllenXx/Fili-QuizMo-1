@@ -16,6 +16,58 @@ function errorResponse(
   );
 }
 
+type PointsRpc = {
+  rpc(
+    fn: "quiz_attempt_points",
+    args: { p_attempt_id: string },
+  ): PromiseLike<{
+    data: { question_id: string; points: number }[] | null;
+    error: { message: string } | null;
+  }>;
+};
+
+/**
+ * Adds each question's points to the review payload so a weighted score can be
+ * explained. Best effort: when the lookup is unavailable (for example the
+ * database function is not installed yet) the review still loads, with every
+ * question counted as 1 point as before.
+ */
+async function withQuestionPoints(
+  supabase: unknown,
+  payload: unknown,
+  attemptId: string,
+): Promise<unknown> {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !Array.isArray((payload as { questions?: unknown }).questions)
+  ) {
+    return payload;
+  }
+
+  try {
+    const { data, error } = await (supabase as PointsRpc).rpc(
+      "quiz_attempt_points",
+      { p_attempt_id: attemptId },
+    );
+    if (error || !data) return payload;
+
+    const pointsById = new Map(data.map((row) => [String(row.question_id), row.points]));
+    const questions = (payload as { questions: unknown[] }).questions.map(
+      (question) => {
+        if (typeof question !== "object" || question === null) return question;
+        const id = String((question as { question_id?: unknown }).question_id ?? "");
+        const points = pointsById.get(id);
+        return points === undefined ? question : { ...question, points };
+      },
+    );
+
+    return { ...(payload as object), questions };
+  } catch {
+    return payload;
+  }
+}
+
 /**
  * GET /api/assessment?attemptId=<uuid>
  *
@@ -89,7 +141,7 @@ export async function GET(request: Request): Promise<Response> {
     }
   }
 
-  const assessment = buildAssessment(data);
+  const assessment = buildAssessment(await withQuestionPoints(supabase, data, attemptId));
 
   if (!assessment) {
     console.error("Assessment payload was not in the expected shape.");

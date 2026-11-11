@@ -28,6 +28,8 @@ export type AssessmentQuestion = {
   /** The student's answer as text, or null when the question was skipped. */
   yourAnswer: string | null;
   correctAnswer: string;
+  /** What this question is worth. 1 unless the teacher weighted it. */
+  points: number;
 };
 
 export type FeedbackRole = "teacher" | "student";
@@ -62,6 +64,8 @@ export type Assessment = {
     wrong: number;
     skipped: number;
     total: number;
+    /** True when questions are worth different points, so these are points. */
+    weighted: boolean;
   };
   questions: AssessmentQuestion[];
   /** True when the question marks add up to the recorded result. */
@@ -78,6 +82,7 @@ type RawQuestion = {
   choices: RawChoice[];
   correctAnswer: string;
   userAnswer: string | null;
+  points: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -209,9 +214,21 @@ function resolveChoice(
 function gradeQuestions(
   rawQuestions: readonly RawQuestion[],
   base: 0 | 1,
-): { questions: AssessmentQuestion[]; correct: number; answered: number } {
+): {
+  questions: AssessmentQuestion[];
+  correct: number;
+  answered: number;
+  earnedPoints: number;
+  possiblePoints: number;
+  wrongPoints: number;
+  skippedPoints: number;
+} {
   let correct = 0;
   let answered = 0;
+  let earnedPoints = 0;
+  let possiblePoints = 0;
+  let wrongPoints = 0;
+  let skippedPoints = 0;
 
   const questions = rawQuestions.map((raw, index): AssessmentQuestion => {
     const correctIndex = resolveChoice(raw.correctAnswer, raw.choices, base);
@@ -219,8 +236,10 @@ function gradeQuestions(
     const hasAnswer = raw.userAnswer !== null && raw.userAnswer.trim() !== "";
 
     let status: AnswerStatus;
+    possiblePoints += raw.points;
     if (!hasAnswer) {
       status = "skipped";
+      skippedPoints += raw.points;
     } else {
       answered += 1;
       const isRight =
@@ -228,7 +247,12 @@ function gradeQuestions(
           ? correctIndex === userIndex
           : normalize(raw.userAnswer ?? "") === normalize(raw.correctAnswer);
       status = isRight ? "correct" : "wrong";
-      if (isRight) correct += 1;
+      if (isRight) {
+        correct += 1;
+        earnedPoints += raw.points;
+      } else {
+        wrongPoints += raw.points;
+      }
     }
 
     return {
@@ -249,10 +273,19 @@ function gradeQuestions(
         : null,
       correctAnswer:
         correctIndex >= 0 ? raw.choices[correctIndex].text : raw.correctAnswer,
+      points: raw.points,
     };
   });
 
-  return { questions, correct, answered };
+  return {
+    questions,
+    correct,
+    answered,
+    earnedPoints,
+    possiblePoints,
+    wrongPoints,
+    skippedPoints,
+  };
 }
 
 /**
@@ -353,6 +386,8 @@ export function buildAssessment(payload: unknown): Assessment | null {
       choices: parseChoices(item.choices),
       correctAnswer: readText(item.correct_answer) ?? "",
       userAnswer: readText(item.user_answer),
+      // Questions are worth 1 point unless the payload says otherwise.
+      points: Math.max(readInt(item.points, 1), 1),
     }));
 
   // Positions can be stored 0-based or 1-based. Start from what the data
@@ -361,15 +396,24 @@ export function buildAssessment(payload: unknown): Assessment | null {
   const hint = guessBase(rawQuestions);
   const preferred = gradeQuestions(rawQuestions, hint);
   const other = gradeQuestions(rawQuestions, hint === 0 ? 1 : 0);
+
+  // A weighted quiz records points: correct_count is the points earned and
+  // total_questions the points possible, so compare points, not item counts.
+  const weighted = rawQuestions.some((question) => question.points !== 1);
+  const scoreOf = (grade: typeof preferred) =>
+    weighted ? grade.earnedPoints : grade.correct;
   const graded =
-    preferred.correct === recordedCorrect || other.correct !== recordedCorrect
+    scoreOf(preferred) === recordedCorrect ||
+    scoreOf(other) !== recordedCorrect
       ? preferred
       : other;
 
   const consistent =
-    graded.correct === recordedCorrect &&
+    scoreOf(graded) === recordedCorrect &&
     graded.answered === recordedAnswered &&
-    graded.questions.length === total;
+    (weighted
+      ? graded.possiblePoints === total
+      : graded.questions.length === total);
 
   return {
     attempt: {
@@ -379,12 +423,21 @@ export function buildAssessment(payload: unknown): Assessment | null {
       completedAt: readText(attempt.completed_at) ?? "",
       percentage: Number(attempt.percentage) || 0,
     },
-    summary: {
-      correct: recordedCorrect,
-      wrong: Math.max(recordedAnswered - recordedCorrect, 0),
-      skipped: Math.max(total - recordedAnswered, 0),
-      total,
-    },
+    summary: weighted
+      ? {
+          correct: recordedCorrect,
+          wrong: graded.wrongPoints,
+          skipped: graded.skippedPoints,
+          total,
+          weighted: true,
+        }
+      : {
+          correct: recordedCorrect,
+          wrong: Math.max(recordedAnswered - recordedCorrect, 0),
+          skipped: Math.max(total - recordedAnswered, 0),
+          total,
+          weighted: false,
+        },
     questions: graded.questions,
     consistent,
     feedback: parseFeedback(payload.feedback),

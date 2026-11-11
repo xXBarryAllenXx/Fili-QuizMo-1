@@ -2,9 +2,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+const search = vi.hoisted(() => ({ value: "" }));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(search.value),
 }));
 
 import {
@@ -14,14 +16,23 @@ import {
 } from "./export-dropdown";
 
 describe("export dropdown", () => {
-  it("exposes the Excel action and accessible menu trigger", () => {
+  it("shows a labelled download bar with Excel and CSV for the open list", () => {
+    search.value = "entity=students";
     const markup = renderToStaticMarkup(
       createElement(ExportDropdown, { role: "teacher" }),
     );
 
-    expect(markup).toContain("Download as Excel");
-    expect(markup).toContain('aria-haspopup="menu"');
-    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('aria-label="Download student scores"');
+    expect(markup).toContain("Excel");
+    expect(markup).toContain("CSV");
+  });
+
+  it("shows nothing for a teacher on a page that is not a list", () => {
+    search.value = "";
+
+    expect(
+      renderToStaticMarkup(createElement(ExportDropdown, { role: "teacher" })),
+    ).toBe("");
   });
 
   it("offers Excel before CSV in the format menu", () => {
@@ -59,13 +70,26 @@ describe("export dropdown", () => {
 
   it("does not offer a separate participants dataset", () => {
     for (const role of ["teacher", "admin"] as const) {
+      search.value = "entity=participants";
       const markup = renderToStaticMarkup(
         createElement(ExportDropdown, { role }),
       );
 
-      expect(markup).not.toContain('value="participants"');
-      expect(markup).toContain('value="students"');
-      expect(markup).toContain('value="student_accounts"');
+      expect(markup).not.toContain("participants");
+    }
+  });
+
+  it("exports the dataset the page is showing", () => {
+    for (const [entity, label] of [
+      ["students", "student scores"],
+      ["student_accounts", "student accounts"],
+    ] as const) {
+      search.value = `entity=${entity}`;
+      const markup = renderToStaticMarkup(
+        createElement(ExportDropdown, { role: "teacher" }),
+      );
+
+      expect(markup).toContain(`aria-label="Download ${label}"`);
     }
   });
 });

@@ -33,8 +33,20 @@ import {
   type TeacherClass,
 } from "@/lib/classes/client";
 import type { ClassDashboardView } from "@/lib/dashboard/data";
+import { SESSION_ENDED_EVENT } from "@/lib/auth/session-state";
 import { classesHref } from "@/lib/dashboard/teacher-sections";
 import { useUrlParams } from "@/lib/dashboard/use-url-params";
+
+// The last class list that loaded. Opening Classes again shows it at once while
+// a fresh copy loads in the background. Forgotten when the session ends.
+let cachedLists: { classes: TeacherClass[]; suggestions: StudentSuggestion[] } | null =
+  null;
+
+if (typeof window !== "undefined") {
+  window.addEventListener(SESSION_ENDED_EVENT, () => {
+    cachedLists = null;
+  });
+}
 
 type Feedback = { kind: "success" | "error"; text: string } | null;
 type StudentTarget = { classItem: TeacherClass | null; student: ClassStudent };
@@ -90,8 +102,12 @@ export function ManageClasses({
   const rawTab = searchParams.get("tab");
   const tab = isClassTab(rawTab) ? rawTab : "students";
 
-  const [classes, setClasses] = useState<TeacherClass[] | null>(null);
-  const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
+  const [classes, setClasses] = useState<TeacherClass[] | null>(
+    () => cachedLists?.classes ?? null,
+  );
+  const [suggestions, setSuggestions] = useState<StudentSuggestion[]>(
+    () => cachedLists?.suggestions ?? [],
+  );
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -112,6 +128,7 @@ export function ManageClasses({
 
     Promise.all([listClasses(), listSuggestions().catch(() => [])])
       .then(([rows, suggested]) => {
+        cachedLists = { classes: rows, suggestions: suggested };
         if (cancelled) return;
         setClasses(rows);
         setSuggestions(suggested);

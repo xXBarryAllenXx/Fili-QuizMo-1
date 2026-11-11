@@ -37,7 +37,12 @@ const paths = {
   "ShieldCheck": "m12 3 9 4v5c0 5-9 9-9 9s-9-4-9-9V7l9-4Zm-4 9 3 3 5-6",
   "MessageSquare": "M21 3H3v14h4v4l5-4h9V3Z",
   "Trophy": "M8 3h8v7a4 4 0 0 1-8 0V3ZM8 5H3v3a4 4 0 0 0 5 4M16 5h5v3a4 4 0 0 1-5 4M12 14v7M8 21h8",
-  "Ban": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM5 5l14 14"
+  "Ban": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM5 5l14 14",
+  "AlertTriangle": "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3ZM12 9v4M12 17h.01",
+  "Clock": "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM12 6v6l4 2",
+  "CheckCheck": "M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16",
+  "History": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M12 7v5l4 2",
+  "ChevronDown": "m6 9 6 6 6-6"
 } as const;
 
 export type ActionIconName = keyof typeof paths;

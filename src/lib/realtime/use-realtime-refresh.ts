@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { DASHBOARD_DATA_CHANGED_EVENT } from "@/lib/dashboard/realtime-events";
+import { scheduleDashboardRefresh } from "@/lib/realtime/coalesced-refresh";
 
-const REFRESH_DELAY_MS = 800;
 
 /**
  * Keeps a server-rendered dashboard live. When any row in one of the given
@@ -26,25 +25,20 @@ export function useRealtimeRefresh(tables: readonly string[]) {
 
   useEffect(() => {
     const supabase = createClient();
-    let timer: number | undefined;
     let pendingWhileHidden = false;
 
     function refreshNow() {
       pendingWhileHidden = false;
-      router.refresh();
-      window.dispatchEvent(new Event(DASHBOARD_DATA_CHANGED_EVENT));
+      scheduleDashboardRefresh(() => router.refresh());
     }
 
     function scheduleRefresh() {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (document.visibilityState === "hidden") {
-          // No need to fetch for a tab nobody is looking at.
-          pendingWhileHidden = true;
-          return;
-        }
-        refreshNow();
-      }, REFRESH_DELAY_MS);
+      if (document.visibilityState === "hidden") {
+        // No need to fetch for a tab nobody is looking at.
+        pendingWhileHidden = true;
+        return;
+      }
+      refreshNow();
     }
 
     function handleVisibility() {
@@ -70,7 +64,6 @@ export function useRealtimeRefresh(tables: readonly string[]) {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
       void supabase.removeChannel(channel);
     };
