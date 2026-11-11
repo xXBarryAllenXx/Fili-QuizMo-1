@@ -70,11 +70,16 @@ function ScoreBar({ value, label }: { value: number; label?: string | null }) {
   );
 }
 
-// Leaderboard table: tight cells on phones, with the extra columns tucked
-// away until there is room (secondary score + attempts from sm, date from md).
-const LB_CELL = "py-1.5 pr-2 sm:py-2 sm:pr-3";
-const LB_HIDE_SM = "hidden sm:table-cell";
-const LB_HIDE_MD = "hidden md:table-cell";
+// Leaderboard table: every column is always there. On a phone the table
+// scrolls inside its own box (sideways for the columns, up and down for long
+// lists), with the header row and the Rank + Student columns pinned so a
+// score never loses its name. The sticky cells need a solid background.
+const LB_CELL = "whitespace-nowrap py-1.5 pr-3 sm:py-2";
+// Header cells stick to the top (z-[2]); the two name columns also stick to
+// the left, and their header cells sit above everything (z-[3]).
+const LB_HEAD = "sticky top-0 z-[2] border-b-2 border-ink bg-neutral-100";
+const LB_RANK = "sticky left-0 w-16 min-w-16 pl-2";
+const LB_STUDENT = "sticky left-16 border-r border-neutral-300 pl-1";
 
 /**
  * The ranking of one class: every student in it, overall or for a single quiz.
@@ -133,27 +138,43 @@ export function ClassRanking({
                 : "Ranked by average score across all quizzes. Whole class."
             }
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
+            <div
+              role="region"
+              aria-label={`${board.quiz ?? "Overall"} leaderboard (scrolls)`}
+              tabIndex={0}
+              className="max-h-[60vh] overflow-auto overscroll-x-contain border-2 border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:max-h-[75vh] [-webkit-overflow-scrolling:touch]"
+            >
+              <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs sm:text-sm">
                 <caption className="sr-only">
                   {board.quiz ?? "Overall"} leaderboard
                 </caption>
                 <thead>
                   <tr>
-                    <th scope="col" className={LB_CELL}>Rank</th>
-                    <th scope="col" className={LB_CELL}>Student</th>
-                    <th scope="col" className={LB_CELL}>{primaryLabel}</th>
-                    <th scope="col" className={LB_CELL}>Points</th>
-                    <th scope="col" className={`${LB_CELL} ${LB_HIDE_SM}`}>
-                      {secondaryLabel}
-                    </th>
-                    <th scope="col" className={`${LB_CELL} ${LB_HIDE_SM}`}>
-                      Attempts
+                    <th
+                      scope="col"
+                      className={`${LB_CELL} ${LB_HEAD} ${LB_RANK} z-[3]`}
+                    >
+                      Rank
                     </th>
                     <th
                       scope="col"
-                      className={`py-1.5 sm:py-2 ${LB_HIDE_MD}`}
+                      className={`${LB_CELL} ${LB_HEAD} ${LB_STUDENT} z-[3]`}
                     >
+                      Student
+                    </th>
+                    <th scope="col" className={`${LB_CELL} ${LB_HEAD} pl-3`}>
+                      {primaryLabel}
+                    </th>
+                    <th scope="col" className={`${LB_CELL} ${LB_HEAD}`}>
+                      Points
+                    </th>
+                    <th scope="col" className={`${LB_CELL} ${LB_HEAD}`}>
+                      {secondaryLabel}
+                    </th>
+                    <th scope="col" className={`${LB_CELL} ${LB_HEAD}`}>
+                      Attempts
+                    </th>
+                    <th scope="col" className={`${LB_CELL} ${LB_HEAD}`}>
                       Last active
                     </th>
                   </tr>
@@ -161,13 +182,20 @@ export function ClassRanking({
                 <tbody>
                   {board.entries.map((entry) => (
                     <tr key={entry.student}>
-                      <td className={LB_CELL}>
+                      <td
+                        className={`${LB_CELL} ${LB_RANK} z-[1] border-t border-neutral-200 bg-surface`}
+                      >
                         <RankChip rank={entry.rank} />
                       </td>
-                      <td className={`${LB_CELL} font-semibold text-foreground`}>
-                        {entry.student}
+                      <td
+                        title={entry.student}
+                        className={`${LB_CELL} ${LB_STUDENT} z-[1] border-t border-neutral-200 bg-surface font-semibold text-foreground`}
+                      >
+                        <span className="block max-w-40 truncate sm:max-w-56">
+                          {entry.student}
+                        </span>
                       </td>
-                      <td className={LB_CELL}>
+                      <td className={`${LB_CELL} border-t border-neutral-200 pl-3`}>
                         <ScoreBar
                           value={
                             board.rankedBy === "best"
@@ -179,19 +207,21 @@ export function ClassRanking({
                           }
                         />
                       </td>
-                      <td className={`${LB_CELL} font-bold text-foreground`}>
+                      <td
+                        className={`${LB_CELL} border-t border-neutral-200 font-bold text-foreground`}
+                      >
                         {entry.points}
                       </td>
-                      <td className={`${LB_CELL} ${LB_HIDE_SM}`}>
+                      <td className={`${LB_CELL} border-t border-neutral-200`}>
                         {board.rankedBy === "best"
                           ? `${Math.round(entry.average * 10) / 10}%`
                           : (entry.bestRaw ??
                             `${Math.round(entry.best * 10) / 10}%`)}
                       </td>
-                      <td className={`${LB_CELL} ${LB_HIDE_SM}`}>
+                      <td className={`${LB_CELL} border-t border-neutral-200`}>
                         {entry.attempts}
                       </td>
-                      <td className={`py-1.5 sm:py-2 ${LB_HIDE_MD}`}>
+                      <td className={`${LB_CELL} border-t border-neutral-200`}>
                         {formatDate(entry.lastCompletedAt)}
                       </td>
                     </tr>
