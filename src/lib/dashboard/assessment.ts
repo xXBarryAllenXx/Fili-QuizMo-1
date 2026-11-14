@@ -85,6 +85,21 @@ type RawQuestion = {
   points: number;
 };
 
+/**
+ * The quiz app saves this placeholder (not an empty value) for a question the
+ * student left blank. It is not an answer: such a question counts as skipped.
+ */
+const UNANSWERED_PATTERN = /^_*unanswered_*$/i;
+
+/** The saved answer, or null when there is none (empty or the placeholder). */
+function readAnswer(value: unknown): string | null {
+  const text = readText(value);
+  if (text === null) return null;
+
+  const trimmed = text.trim();
+  return trimmed === "" || UNANSWERED_PATTERN.test(trimmed) ? null : text;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -385,7 +400,7 @@ export function buildAssessment(payload: unknown): Assessment | null {
       text: readText(item.question_text) ?? "",
       choices: parseChoices(item.choices),
       correctAnswer: readText(item.correct_answer) ?? "",
-      userAnswer: readText(item.user_answer),
+      userAnswer: readAnswer(item.user_answer),
       // Questions are worth 1 point unless the payload says otherwise.
       points: Math.max(readInt(item.points, 1), 1),
     }));
@@ -419,13 +434,14 @@ export function buildAssessment(payload: unknown): Assessment | null {
     graded.correct === recordedCorrect &&
     graded.questions.length === total;
 
-  const consistent = answersMatchScore
-    ? true
-    : scoreOf(graded) === recordedCorrect &&
-      graded.answered === recordedAnswered &&
-      (weighted
-        ? graded.possiblePoints === total
-        : graded.questions.length === total);
+  // "Consistent" means the question marks add up to the recorded score. How
+  // many questions the app counted as answered is not part of that check: a
+  // blank question is skipped here whatever the saved count says.
+  const consistent =
+    scoreOf(graded) === recordedCorrect &&
+    (weighted
+      ? graded.possiblePoints === total
+      : graded.questions.length === total);
 
   return {
     attempt: {
