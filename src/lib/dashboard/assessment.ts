@@ -408,12 +408,24 @@ export function buildAssessment(payload: unknown): Assessment | null {
       ? preferred
       : other;
 
-  const consistent =
-    scoreOf(graded) === recordedCorrect &&
-    graded.answered === recordedAnswered &&
-    (weighted
-      ? graded.possiblePoints === total
-      : graded.questions.length === total);
+  // When the saved answers reproduce the recorded score and cover every
+  // question, they are the best description of the attempt: wrong and skipped
+  // are counted from the same answers the question list below shows, so the
+  // summary can never disagree with it. (The recorded answered_count is only
+  // used when the answers cannot be matched to the score, for example after
+  // the teacher edited the quiz.)
+  const answersMatchScore =
+    !weighted &&
+    graded.correct === recordedCorrect &&
+    graded.questions.length === total;
+
+  const consistent = answersMatchScore
+    ? true
+    : scoreOf(graded) === recordedCorrect &&
+      graded.answered === recordedAnswered &&
+      (weighted
+        ? graded.possiblePoints === total
+        : graded.questions.length === total);
 
   return {
     attempt: {
@@ -431,13 +443,21 @@ export function buildAssessment(payload: unknown): Assessment | null {
           total,
           weighted: true,
         }
-      : {
-          correct: recordedCorrect,
-          wrong: Math.max(recordedAnswered - recordedCorrect, 0),
-          skipped: Math.max(total - recordedAnswered, 0),
-          total,
-          weighted: false,
-        },
+      : answersMatchScore
+        ? {
+            correct: recordedCorrect,
+            wrong: graded.answered - graded.correct,
+            skipped: total - graded.answered,
+            total,
+            weighted: false,
+          }
+        : {
+            correct: recordedCorrect,
+            wrong: Math.max(recordedAnswered - recordedCorrect, 0),
+            skipped: Math.max(total - recordedAnswered, 0),
+            total,
+            weighted: false,
+          },
     questions: graded.questions,
     consistent,
     feedback: parseFeedback(payload.feedback),

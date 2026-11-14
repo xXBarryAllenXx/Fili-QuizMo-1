@@ -37,6 +37,8 @@ import type {
 } from "@/lib/dashboard/assessment";
 
 const PAGE_SIZE = 5;
+/** Most attempts the answer summary adds up (the same cap as the API). */
+const SUMMARY_LIMIT = 100;
 
 type Viewer = "student" | "teacher";
 
@@ -81,6 +83,74 @@ function useFeedbackCounts(): Record<string, FeedbackCount> {
   useRefreshOnReturn(refresh);
 
   return counts;
+}
+
+type AttemptSummary = {
+  correct: number;
+  wrong: number;
+  skipped: number;
+  total: number;
+  /** True when the quiz is scored in points (questions worth different points). */
+  weighted?: boolean;
+};
+
+/**
+ * The right / wrong / skipped counts of each attempt, read the same way the
+ * review of one attempt reads them (GET /api/assessment/summary uses the same
+ * function as GET /api/assessment). The cards above the list therefore always
+ * agree with the "Result summary" a student sees after pressing Review.
+ *
+ * `summaries` is null until the request finishes, and stays null if it fails
+ * or some attempt could not be read, so a half-right number is never shown.
+ */
+function useAttemptSummaries(attemptIds: readonly string[]): {
+  summaries: Record<string, AttemptSummary> | null;
+} {
+  const key = attemptIds.join(",");
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    summaries: Record<string, AttemptSummary> | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (key === "") return;
+    const controller = new AbortController();
+    const wanted = key.split(",");
+
+    fetch(`/api/assessment/summary?attemptIds=${encodeURIComponent(key)}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("summary unavailable");
+
+        const body: unknown = await response.json();
+        const found =
+          typeof body === "object" &&
+          body !== null &&
+          "summaries" in body &&
+          typeof body.summaries === "object" &&
+          body.summaries !== null
+            ? (body.summaries as Record<string, AttemptSummary>)
+            : null;
+
+        setLoaded({
+          key,
+          summaries:
+            found && wanted.every((id) => found[id] !== undefined)
+              ? found
+              : null,
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setLoaded({ key, summaries: null });
+      });
+
+    return () => controller.abort();
+  }, [key]);
+
+  return { summaries: loaded?.key === key ? loaded.summaries : null };
 }
 
 type NoteFilter = "" | "replied" | "with" | "without";
@@ -228,18 +298,22 @@ function AttemptList({
     validPage * PAGE_SIZE,
   );
 
-  // Same recorded numbers as the history table, added up.
-  const totals = reviewable.reduce(
+  // Right answers and the question count come straight from the history rows.
+  // Wrong and skipped come from the same numbers the review page shows, so the
+  // two never disagree (see useAttemptSummaries).
+  const counted = reviewable.slice(0, SUMMARY_LIMIT);
+  const { summaries } = useAttemptSummaries(
+    counted.flatMap((row) => (row.attempt_id ? [row.attempt_id] : [])),
+  );
+  const totals = counted.reduce(
     (sum, row) => {
-      const total = row.total_questions ?? 0;
-      const correct = row.correct_count ?? 0;
-      const answered = Math.min(row.answered_count ?? correct, total);
+      const summary = row.attempt_id ? summaries?.[row.attempt_id] : undefined;
 
       return {
-        correct: sum.correct + correct,
-        wrong: sum.wrong + Math.max(answered - correct, 0),
-        skipped: sum.skipped + Math.max(total - answered, 0),
-        total: sum.total + total,
+        correct: sum.correct + (row.correct_count ?? 0),
+        wrong: sum.wrong + (summary?.wrong ?? 0),
+        skipped: sum.skipped + (summary?.skipped ?? 0),
+        total: sum.total + (row.total_questions ?? 0),
       };
     },
     { correct: 0, wrong: 0, skipped: 0, total: 0 },
@@ -269,10 +343,24 @@ function AttemptList({
               <StatCard
                 label="Correct answers"
                 value={`${totals.correct}/${totals.total}`}
-                hint={`Latest ${reviewable.length} attempts`}
+                hint={
+                  // Weighted quizzes count points, as the review page says.
+                  summaries &&
+                  Object.values(summaries).some((entry) => entry.weighted)
+                    ? "Counted in points"
+                    : counted.length === 1
+                      ? "Latest attempt"
+                      : `Latest ${counted.length} attempts`
+                }
               />
-              <StatCard label="Wrong answers" value={String(totals.wrong)} />
-              <StatCard label="Skipped" value={String(totals.skipped)} />
+              <StatCard
+                label="Wrong answers"
+                value={summaries ? String(totals.wrong) : "—"}
+              />
+              <StatCard
+                label="Skipped"
+                value={summaries ? String(totals.skipped) : "—"}
+              />
             </StatGrid>
           </section>
 
