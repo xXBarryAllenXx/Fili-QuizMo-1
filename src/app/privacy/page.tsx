@@ -11,7 +11,7 @@ const sections: PolicySection[] = [
     title: "1. Who is responsible",
     content: (
       <p>
-        Fili-QuizMo Team, at 109 Samson Road corner Caimito Road, Caloocan, Philippines, is responsible for
+        JASE, at 109 Samson Road corner Caimito Road, Caloocan, Philippines, is responsible for
         personal data processed through Fili-QuizMo.
       </p>
     ),
